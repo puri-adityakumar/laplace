@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "PR Bot",
+  "name": "Laplace",
   "description": "Auto-generate GitHub PR descriptions using AI",
   "version": "0.1.0",
   "icons": {
@@ -23,7 +23,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://github.com/*/*/pull/*"],
+      "matches": [
+        "https://github.com/*/*/pull/*",
+        "https://github.com/*/*/compare/*"
+      ],
       "js": ["src/content/index.tsx"],
       "css": ["src/content/styles.css"]
     }
