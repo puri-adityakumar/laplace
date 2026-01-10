@@ -36,9 +36,21 @@ export interface GenerateResponse {
   error?: string;
 }
 
-export interface MessageMap {
-  GENERATE_PR_DESCRIPTION: {
-    request: GenerateRequest;
-    response: GenerateResponse;
-  };
+export type MessageType = 'GENERATE_PR_DESCRIPTION' | 'GET_SETTINGS' | 'SCRAPE_CONTEXT';
+
+export interface Message {
+  type: MessageType;
+  payload?: unknown;
+}
+
+export interface ScrapedContext {
+  title: string;
+  baseBranch: string;
+  headBranch: string;
+  labels: string[];
+  existingDescription: string;
+  owner: string;
+  repo: string;
+  prNumber: number | null;
+  isNewPR: boolean;
 }
