@@ -35,17 +35,25 @@ async function fetchDiff(
   
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3.diff',
+    'User-Agent': 'Laplace-Extension',
   };
 
   if (pat) {
     headers['Authorization'] = `Bearer ${pat}`;
   }
 
+  console.log('[Laplace] Fetching diff from:', url);
+
   const response = await fetch(url, { headers });
 
   if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    console.error('[Laplace] Diff fetch failed:', response.status, text);
     if (response.status === 404) {
       throw new Error('PR not found or private repository requires authentication');
+    }
+    if (response.status === 403) {
+      throw new Error('Rate limited or forbidden. Try adding a GitHub PAT.');
     }
     throw new Error(`Failed to fetch diff: ${response.status}`);
   }
@@ -69,17 +77,25 @@ async function fetchCommits(
   
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
+    'User-Agent': 'Laplace-Extension',
   };
 
   if (pat) {
     headers['Authorization'] = `Bearer ${pat}`;
   }
 
+  console.log('[Laplace] Fetching commits from:', url);
+
   const response = await fetch(url, { headers });
 
   if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    console.error('[Laplace] Commits fetch failed:', response.status, text);
     if (response.status === 404) {
       throw new Error('PR not found or private repository requires authentication');
+    }
+    if (response.status === 403) {
+      throw new Error('Rate limited or forbidden. Try adding a GitHub PAT.');
     }
     throw new Error(`Failed to fetch commits: ${response.status}`);
   }
@@ -113,19 +129,32 @@ export async function fetchCompareDiff(
   head: string,
   pat?: string
 ): Promise<GitHubAPIContext> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/compare/${base}...${head}`;
+  const encodedBase = encodeURIComponent(base);
+  const encodedHead = encodeURIComponent(head);
+  const url = `https://api.github.com/repos/${owner}/${repo}/compare/${encodedBase}...${encodedHead}`;
   
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
+    'User-Agent': 'Laplace-Extension',
   };
 
   if (pat) {
     headers['Authorization'] = `Bearer ${pat}`;
   }
 
+  console.log('[Laplace] Fetching compare from:', url);
+
   const response = await fetch(url, { headers });
 
   if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    console.error('[Laplace] Compare fetch failed:', response.status, text);
+    if (response.status === 404) {
+      throw new Error('Branches not found or repository requires authentication');
+    }
+    if (response.status === 403) {
+      throw new Error('Rate limited or forbidden. Try adding a GitHub PAT.');
+    }
     throw new Error(`Failed to fetch compare: ${response.status}`);
   }
 
@@ -147,6 +176,8 @@ export async function fetchCompareDiff(
   if (diff.length > MAX_DIFF_CHARS) {
     diff = truncateDiff(diff, MAX_DIFF_CHARS);
   }
+
+  console.log('[Laplace] Compare result:', { diffLength: diff.length, commitsCount: commits.length });
 
   return { diff, commits };
 }

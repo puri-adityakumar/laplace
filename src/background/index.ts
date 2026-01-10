@@ -29,28 +29,54 @@ async function handleGeneratePR(
 
   const { scrapedContext } = message;
 
+  console.log('[Laplace] Scraped context:', scrapedContext);
+
   let apiContext = { diff: '', commits: [] as string[] };
+  let fetchError: string | null = null;
 
   try {
     if (scrapedContext.prNumber && !scrapedContext.isNewPR) {
+      console.log('[Laplace] Fetching existing PR:', scrapedContext.prNumber);
       apiContext = await fetchPRContext(
         scrapedContext.owner,
         scrapedContext.repo,
         scrapedContext.prNumber,
         settings.githubPat || undefined
       );
-    } else if (scrapedContext.isNewPR && scrapedContext.baseBranch && scrapedContext.headBranch) {
-      apiContext = await fetchCompareDiff(
-        scrapedContext.owner,
-        scrapedContext.repo,
-        scrapedContext.baseBranch,
-        scrapedContext.headBranch,
-        settings.githubPat || undefined
-      );
+    } else if (scrapedContext.isNewPR) {
+      let baseBranch = scrapedContext.baseBranch;
+      let headBranch = scrapedContext.headBranch;
+
+      if (baseBranch.includes(':')) {
+        baseBranch = baseBranch.split(':').pop() ?? baseBranch;
+      }
+      if (headBranch.includes(':')) {
+        headBranch = headBranch.split(':').pop() ?? headBranch;
+      }
+
+      console.log('[Laplace] Fetching compare:', { baseBranch, headBranch });
+
+      if (baseBranch && headBranch) {
+        apiContext = await fetchCompareDiff(
+          scrapedContext.owner,
+          scrapedContext.repo,
+          baseBranch,
+          headBranch,
+          settings.githubPat || undefined
+        );
+      } else {
+        fetchError = 'Could not detect branch names from the page.';
+      }
     }
   } catch (error) {
-    console.warn('[Laplace] Failed to fetch API context:', error);
+    console.error('[Laplace] Failed to fetch API context:', error);
+    fetchError = error instanceof Error ? error.message : 'Unknown error fetching PR data';
   }
+
+  console.log('[Laplace] API context:', { 
+    diffLength: apiContext.diff.length, 
+    commitsCount: apiContext.commits.length 
+  });
 
   const prContext: PRContext = {
     title: scrapedContext.title,
@@ -63,12 +89,13 @@ async function handleGeneratePR(
   };
 
   if (!prContext.diff && prContext.commits.length === 0) {
+    const baseError = fetchError || 'Could not fetch PR data.';
     if (!settings.githubPat) {
       return { 
-        error: 'Could not fetch PR data. For private repos, please add a GitHub Personal Access Token in settings.' 
+        error: `${baseError} For private repos, please add a GitHub Personal Access Token in settings.` 
       };
     }
-    return { error: 'Could not fetch PR diff or commits. Please check your GitHub token permissions.' };
+    return { error: `${baseError} Please check your GitHub token permissions.` };
   }
 
   const messages = buildPrompt(prContext, settings.style);
