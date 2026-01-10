@@ -38,8 +38,9 @@ function scrapeTitle(): string {
 }
 
 function scrapeBranches(): { baseBranch: string; headBranch: string } {
-  const baseRef = document.querySelector('.base-ref');
-  const headRef = document.querySelector('.head-ref');
+  // New GitHub UI uses dropdown selectors with data-menu-button
+  const baseRef = document.querySelector('#base-ref-selector .css-truncate-target[data-menu-button]');
+  const headRef = document.querySelector('#head-ref-selector .css-truncate-target[data-menu-button]');
 
   return {
     baseBranch: baseRef?.textContent?.trim() ?? '',

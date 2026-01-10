@@ -30,3 +30,4 @@ PRD.md
 # Package manager
 pnpm-debug.log*
 .pnpm-store/
+sample-github.html
