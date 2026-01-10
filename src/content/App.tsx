@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { scrapePRPage, getPRInfoFromURL, isNewPRPage, isPRPage } from '../lib/dom-scraper';
 import type { ScrapedContext, GenerateResponse } from '../lib/types';
 
@@ -8,11 +9,58 @@ export function App() {
   const [status, setStatus] = useState<Status>('idle');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
-  const [visible, setVisible] = useState(true);
+  const [toolbarContainer, setToolbarContainer] = useState<HTMLElement | null>(null);
+  const retryRef = useRef(0);
 
   useEffect(() => {
-    setVisible(isPRPage());
-  }, []);
+    const findToolbar = () => {
+      const selectors = [
+        '.js-write-bucket .toolbar-commenting',
+        '.comment-form-head .toolbar-commenting', 
+        '.tabnav-tabs',
+        '.js-previewable-comment-form .tabnav',
+        '[data-view-component="true"].ActionBar',
+      ];
+
+      for (const selector of selectors) {
+        const toolbar = document.querySelector(selector);
+        if (toolbar) {
+          let container = document.getElementById('laplace-toolbar-container');
+          if (!container) {
+            container = document.createElement('div');
+            container.id = 'laplace-toolbar-container';
+            container.style.display = 'inline-flex';
+            container.style.alignItems = 'center';
+            container.style.marginLeft = '8px';
+            toolbar.appendChild(container);
+          }
+          setToolbarContainer(container);
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const tryFind = () => {
+      if (!findToolbar() && retryRef.current < 10) {
+        retryRef.current++;
+        setTimeout(tryFind, 500);
+      }
+    };
+
+    if (isPRPage()) {
+      tryFind();
+    }
+
+    const observer = new MutationObserver(() => {
+      if (isPRPage() && !toolbarContainer) {
+        findToolbar();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  }, [toolbarContainer]);
 
   const handleGenerate = useCallback(async () => {
     setStatus('loading');
@@ -112,101 +160,125 @@ export function App() {
     }
   }, [description]);
 
-  const handleMinimize = useCallback(() => {
-    setVisible(false);
-  }, []);
+  const toolbarButton = toolbarContainer ? createPortal(
+    <ToolbarButton status={status} onClick={handleGenerate} />,
+    toolbarContainer
+  ) : null;
 
-  const handleShow = useCallback(() => {
-    setVisible(true);
-  }, []);
+  return (
+    <>
+      {toolbarButton}
+      
+      {status === 'error' && (
+        <ErrorState message={error} onRetry={handleGenerate} onClose={handleClose} />
+      )}
 
-  if (!visible) {
-    return <MinimizedButton onClick={handleShow} />;
-  }
+      {status === 'preview' && (
+        <PreviewPanel
+          description={description}
+          onInsert={handleInsert}
+          onCopy={handleCopy}
+          onClose={handleClose}
+          onRegenerate={handleGenerate}
+        />
+      )}
 
-  if (status === 'idle') {
-    return <GenerateButton onClick={handleGenerate} onMinimize={handleMinimize} />;
-  }
-
-  if (status === 'loading') {
-    return <LoadingState />;
-  }
-
-  if (status === 'error') {
-    return <ErrorState message={error} onRetry={handleGenerate} onClose={handleClose} />;
-  }
-
-  if (status === 'success') {
-    return <SuccessState />;
-  }
-
-  if (status === 'preview') {
-    return (
-      <PreviewPanel
-        description={description}
-        onInsert={handleInsert}
-        onCopy={handleCopy}
-        onClose={handleClose}
-        onRegenerate={handleGenerate}
-      />
-    );
-  }
-
-  return null;
+      {status === 'success' && <SuccessState />}
+    </>
+  );
 }
 
-function MinimizedButton({ onClick }: { onClick: () => void }) {
+function ToolbarButton({ status, onClick }: { status: Status; onClick: () => void }) {
+  const isLoading = status === 'loading';
+
   return (
     <button
       onClick={onClick}
-      title="Open Laplace"
-      className="laplace-btn fixed bottom-4 right-4 z-[9999] p-2 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-110"
+      disabled={isLoading}
+      className="laplace-toolbar-btn"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        padding: '5px 12px',
+        fontSize: '12px',
+        fontWeight: 500,
+        color: '#fff',
+        backgroundColor: '#2563eb',
+        border: 'none',
+        borderRadius: '6px',
+        cursor: isLoading ? 'wait' : 'pointer',
+        opacity: isLoading ? 0.7 : 1,
+        transition: 'all 0.15s ease',
+      }}
+      onMouseEnter={(e) => {
+        if (!isLoading) e.currentTarget.style.backgroundColor = '#1d4ed8';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = '#2563eb';
+      }}
     >
-      <SparklesIcon />
+      {isLoading ? (
+        <>
+          <LoadingSpinner />
+          <span>Generating...</span>
+        </>
+      ) : (
+        <>
+          <SparklesIcon />
+          <span>Generate with AI</span>
+        </>
+      )}
     </button>
   );
 }
 
-function GenerateButton({ onClick, onMinimize }: { onClick: () => void; onMinimize: () => void }) {
+function LoadingSpinner() {
   return (
-    <div className="laplace-panel fixed bottom-4 right-4 z-[9999] flex items-center gap-1">
-      <button
-        onClick={onClick}
-        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-l-lg shadow-lg hover:bg-blue-700 transition-colors"
-      >
-        <SparklesIcon />
-        Generate Description
-      </button>
-      <button
-        onClick={onMinimize}
-        title="Minimize"
-        className="px-2 py-2 bg-blue-600 text-white text-sm rounded-r-lg shadow-lg hover:bg-blue-700 transition-colors border-l border-blue-500"
-      >
-        <MinimizeIcon />
-      </button>
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="laplace-panel fixed bottom-4 right-4 z-[9999] flex items-center gap-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-lg">
-      <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full" />
-      <div>
-        <p className="text-sm font-medium text-gray-900">Generating...</p>
-        <p className="text-xs text-gray-500">Analyzing PR and creating description</p>
-      </div>
-    </div>
+    <svg
+      className="animate-spin"
+      style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }}
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        style={{ opacity: 0.25 }}
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        style={{ opacity: 0.75 }}
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
   );
 }
 
 function SuccessState() {
   return (
-    <div className="laplace-panel fixed bottom-4 right-4 z-[9999] flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-lg shadow-lg">
-      <div className="text-green-600">
-        <CheckIcon />
-      </div>
-      <p className="text-sm font-medium text-green-800">Done!</p>
+    <div
+      className="laplace-panel"
+      style={{
+        position: 'fixed',
+        bottom: 16,
+        right: 16,
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 16px',
+        backgroundColor: '#ecfdf5',
+        border: '1px solid #a7f3d0',
+        borderRadius: 8,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      }}
+    >
+      <CheckIcon />
+      <span style={{ fontSize: 14, fontWeight: 500, color: '#065f46' }}>Done!</span>
     </div>
   );
 }
@@ -223,33 +295,74 @@ function ErrorState({
   const isConfigError = message.includes('API key') || message.includes('settings');
 
   return (
-    <div className="laplace-panel fixed bottom-4 right-4 z-[9999] max-w-sm p-4 bg-white border border-red-200 rounded-lg shadow-lg">
-      <div className="flex items-start gap-3">
-        <div className="flex-shrink-0 text-red-500">
+    <div
+      className="laplace-panel"
+      style={{
+        position: 'fixed',
+        bottom: 16,
+        right: 16,
+        zIndex: 9999,
+        maxWidth: 350,
+        padding: 16,
+        backgroundColor: '#fff',
+        border: '1px solid #fecaca',
+        borderRadius: 8,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ color: '#ef4444', flexShrink: 0 }}>
           <ErrorIcon />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-red-800">Error</p>
-          <p className="text-sm text-red-600 mt-1">{message}</p>
-          <div className="flex gap-2 mt-3">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#991b1b' }}>Error</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#dc2626' }}>{message}</p>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             {isConfigError ? (
               <button
                 onClick={() => chrome.runtime.openOptionsPage()}
-                className="px-3 py-1.5 text-xs font-medium bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  backgroundColor: '#dbeafe',
+                  color: '#1e40af',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
               >
                 Open Settings
               </button>
             ) : (
               <button
                 onClick={onRetry}
-                className="px-3 py-1.5 text-xs font-medium bg-red-100 text-red-700 rounded hover:bg-red-200"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  backgroundColor: '#fee2e2',
+                  color: '#991b1b',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
               >
                 Retry
               </button>
             )}
             <button
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-medium bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+              style={{
+                padding: '6px 12px',
+                fontSize: 12,
+                fontWeight: 500,
+                backgroundColor: '#f3f4f6',
+                color: '#374151',
+                border: 'none',
+                borderRadius: 4,
+                cursor: 'pointer',
+              }}
             >
               Close
             </button>
@@ -276,46 +389,134 @@ function PreviewPanel({
   const wordCount = description.split(/\s+/).filter(Boolean).length;
 
   return (
-    <div className="laplace-panel fixed bottom-4 right-4 z-[9999] w-[420px] max-h-[70vh] flex flex-col bg-white border border-gray-200 rounded-lg shadow-xl">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+    <div
+      className="laplace-panel"
+      style={{
+        position: 'fixed',
+        bottom: 16,
+        right: 16,
+        zIndex: 9999,
+        width: 420,
+        maxHeight: '70vh',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: '#fff',
+        border: '1px solid #e5e7eb',
+        borderRadius: 8,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 16px',
+          borderBottom: '1px solid #e5e7eb',
+          backgroundColor: '#f9fafb',
+          borderRadius: '8px 8px 0 0',
+        }}
+      >
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Preview</h3>
-          <p className="text-xs text-gray-500">{wordCount} words</p>
+          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#111827' }}>
+            Preview
+          </h3>
+          <p style={{ margin: 0, fontSize: 11, color: '#6b7280' }}>{wordCount} words</p>
         </div>
         <button
           onClick={onClose}
-          className="p-1 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-200"
+          style={{
+            padding: 4,
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#9ca3af',
+            borderRadius: 4,
+          }}
         >
           <CloseIcon />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 min-h-[120px] max-h-[400px]">
-        <div className="prose prose-sm max-w-none">
-          <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans leading-relaxed">
-            {description}
-          </pre>
-        </div>
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: 16,
+          minHeight: 120,
+          maxHeight: 400,
+        }}
+      >
+        <pre
+          style={{
+            margin: 0,
+            fontSize: 13,
+            color: '#374151',
+            whiteSpace: 'pre-wrap',
+            fontFamily: 'inherit',
+            lineHeight: 1.6,
+          }}
+        >
+          {description}
+        </pre>
       </div>
 
-      <div className="flex items-center gap-2 px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '12px 16px',
+          borderTop: '1px solid #e5e7eb',
+          backgroundColor: '#f9fafb',
+          borderRadius: '0 0 8px 8px',
+        }}
+      >
         <button
           onClick={onInsert}
-          className="flex-1 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            fontSize: 13,
+            fontWeight: 500,
+            backgroundColor: '#2563eb',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+          }}
         >
           Insert into PR
         </button>
         <button
           onClick={onCopy}
           title="Copy to clipboard"
-          className="px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+          style={{
+            padding: '8px 12px',
+            fontSize: 13,
+            fontWeight: 500,
+            backgroundColor: '#f3f4f6',
+            color: '#374151',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+          }}
         >
           <CopyIcon />
         </button>
         <button
           onClick={onRegenerate}
           title="Regenerate"
-          className="px-3 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+          style={{
+            padding: '8px 12px',
+            fontSize: 13,
+            fontWeight: 500,
+            backgroundColor: '#f3f4f6',
+            color: '#374151',
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+          }}
         >
           <RefreshIcon />
         </button>
@@ -326,7 +527,7 @@ function PreviewPanel({
 
 function SparklesIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -337,17 +538,9 @@ function SparklesIcon() {
   );
 }
 
-function MinimizeIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  );
-}
-
 function CheckIcon() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg style={{ width: 20, height: 20, color: '#059669' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
     </svg>
   );
@@ -355,7 +548,7 @@ function CheckIcon() {
 
 function ErrorIcon() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg style={{ width: 20, height: 20 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -368,7 +561,7 @@ function ErrorIcon() {
 
 function CloseIcon() {
   return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg style={{ width: 20, height: 20 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -381,7 +574,7 @@ function CloseIcon() {
 
 function CopyIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -394,7 +587,7 @@ function CopyIcon() {
 
 function RefreshIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
