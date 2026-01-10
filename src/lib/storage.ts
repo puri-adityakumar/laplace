@@ -1,7 +1,7 @@
 import { DEFAULT_SETTINGS } from './constants';
 import type { Settings } from './types';
 
-const STORAGE_KEY = 'pr-bot-settings';
+const STORAGE_KEY = 'laplace-settings';
 
 export async function getSettings(): Promise<Settings> {
   return new Promise((resolve) => {

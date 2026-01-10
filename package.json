@@ -1,12 +1,12 @@
 {
-  "name": "pr-bot",
+  "name": "laplace",
   "version": "0.1.0",
   "description": "Auto-generate GitHub PR descriptions using AI",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

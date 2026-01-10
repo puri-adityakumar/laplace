@@ -1,4 +1,4 @@
-# AGENTS.md - PR Bot
+# AGENTS.md - Laplace
 
 > Chrome/Edge extension for auto-generating GitHub PR descriptions using AI (OpenRouter BYOK)
 
