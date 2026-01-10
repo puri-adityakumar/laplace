@@ -1,3 +1,52 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Scope all Laplace styles to avoid conflicts with GitHub */
+#laplace-root {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Ensure our elements are above GitHub's UI */
+.laplace-btn,
+.laplace-panel {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif !important;
+}
+
+/* Smooth animations */
+.laplace-btn,
+.laplace-panel {
+  animation: laplace-fade-in 0.2s ease-out;
+}
+
+@keyframes laplace-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar for preview */
+.laplace-panel ::-webkit-scrollbar {
+  width: 6px;
+}
+
+.laplace-panel ::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.laplace-panel ::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.laplace-panel ::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
