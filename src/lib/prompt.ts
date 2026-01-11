@@ -68,11 +68,22 @@ function buildUserPrompt(context: PRContext): string {
     parts.push(`\n## Diff\n\`\`\`diff\n${context.diff}\n\`\`\``);
   }
 
+  if (context.files && context.files.length > 0) {
+    const filesList = context.files
+      .map((f) => `- ${f.filename} (+${f.additions} -${f.deletions})`)
+      .join('\n');
+    parts.push(`\n## Files Changed\n${filesList}`);
+  }
+
   if (context.existingDescription) {
     parts.push(`\n## Existing Description (for context)\n${context.existingDescription}`);
   }
 
-  parts.push(`\n---\n\nPlease write a PR description based on the information above.`);
+  if (context.usedFallback) {
+    parts.push(`\n---\n\n**Note:** Full diff not available (limited context from page). Please write a PR description based on the commits and file changes above.`);
+  } else {
+    parts.push(`\n---\n\nPlease write a PR description based on the information above.`);
+  }
 
   return parts.join('\n');
 }

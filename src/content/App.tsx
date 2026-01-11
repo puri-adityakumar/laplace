@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { scrapePRPage, getPRInfoFromURL, isNewPRPage, isPRPage } from '../lib/dom-scraper';
+import { scrapePRPage, getPRInfoFromURL, isNewPRPage, isPRPage, scrapeFallbackContext } from '../lib/dom-scraper';
 import type { ScrapedContext, GenerateResponse } from '../lib/types';
 
 type Status = 'idle' | 'loading' | 'preview' | 'error' | 'success';
@@ -68,6 +68,7 @@ export function App() {
 
     try {
       const domContext = scrapePRPage();
+      const fallbackContext = scrapeFallbackContext();
       const prInfo = getPRInfoFromURL();
       const pathMatch = window.location.pathname.match(/^\/([^/]+)\/([^/]+)\//);
 
@@ -85,6 +86,8 @@ export function App() {
         repo: prInfo?.repo ?? pathMatch[2],
         prNumber: prInfo?.prNumber ?? null,
         isNewPR: isNewPRPage(),
+        fallbackCommits: fallbackContext.commits,
+        fallbackFiles: fallbackContext.files,
       };
 
       const response: GenerateResponse = await chrome.runtime.sendMessage({

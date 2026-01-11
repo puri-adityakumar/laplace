@@ -24,6 +24,14 @@ export interface PRContext {
   diff: string;
   commits: string[];
   existingDescription: string;
+  files?: FileChangeSummary[];
+  usedFallback?: boolean;
+}
+
+export interface FileChangeSummary {
+  filename: string;
+  additions: number;
+  deletions: number;
 }
 
 export interface GenerateRequest {
@@ -53,4 +61,6 @@ export interface ScrapedContext {
   repo: string;
   prNumber: number | null;
   isNewPR: boolean;
+  fallbackCommits?: string[];
+  fallbackFiles?: FileChangeSummary[];
 }

@@ -78,6 +78,28 @@ async function handleGeneratePR(
     commitsCount: apiContext.commits.length 
   });
 
+  let usedFallback = false;
+
+  if (!apiContext.diff && apiContext.commits.length === 0) {
+    const hasFallbackData = 
+      (scrapedContext.fallbackCommits && scrapedContext.fallbackCommits.length > 0) ||
+      (scrapedContext.fallbackFiles && scrapedContext.fallbackFiles.length > 0);
+
+    if (hasFallbackData) {
+      console.log('[Laplace] Using DOM fallback data');
+      usedFallback = true;
+      apiContext.commits = scrapedContext.fallbackCommits || [];
+    } else {
+      const baseError = fetchError || 'Could not fetch PR data.';
+      if (!settings.githubPat) {
+        return { 
+          error: `${baseError} For private repos, please add a GitHub Personal Access Token in settings.` 
+        };
+      }
+      return { error: `${baseError} Please check your GitHub token permissions.` };
+    }
+  }
+
   const prContext: PRContext = {
     title: scrapedContext.title,
     baseBranch: scrapedContext.baseBranch,
@@ -86,17 +108,9 @@ async function handleGeneratePR(
     existingDescription: scrapedContext.existingDescription,
     diff: apiContext.diff,
     commits: apiContext.commits,
+    files: usedFallback ? scrapedContext.fallbackFiles : undefined,
+    usedFallback,
   };
-
-  if (!prContext.diff && prContext.commits.length === 0) {
-    const baseError = fetchError || 'Could not fetch PR data.';
-    if (!settings.githubPat) {
-      return { 
-        error: `${baseError} For private repos, please add a GitHub Personal Access Token in settings.` 
-      };
-    }
-    return { error: `${baseError} Please check your GitHub token permissions.` };
-  }
 
   const messages = buildPrompt(prContext, settings.style);
 

@@ -6,6 +6,17 @@ export interface DOMContext {
   existingDescription: string;
 }
 
+export interface DOMFallbackContext {
+  commits: string[];
+  files: FileChange[];
+}
+
+export interface FileChange {
+  filename: string;
+  additions: number;
+  deletions: number;
+}
+
 export function scrapePRPage(): DOMContext {
   const title = scrapeTitle();
   const { baseBranch, headBranch } = scrapeBranches();
@@ -106,4 +117,50 @@ export function isNewPRPage(): boolean {
 
 export function isPRPage(): boolean {
   return /\/pull\/\d+/.test(window.location.pathname) || isNewPRPage();
+}
+
+export function scrapeFallbackContext(): DOMFallbackContext {
+  const commits = scrapeCommitsFromDOM();
+  const files = scrapeFilesFromDOM();
+
+  return { commits, files };
+}
+
+function scrapeCommitsFromDOM(): string[] {
+  const commitElements = document.querySelectorAll(
+    '.js-commits-list-item .markdown-title'
+  );
+
+  return Array.from(commitElements)
+    .map((el) => el.textContent?.trim() ?? '')
+    .filter(Boolean);
+}
+
+function scrapeFilesFromDOM(): FileChange[] {
+  const fileItems = document.querySelectorAll('ol.content li');
+  const files: FileChange[] = [];
+
+  fileItems.forEach((li) => {
+    const filenameLink = li.querySelector('a[href^="#diff-"]');
+    const additionsEl = li.querySelector('.color-fg-success');
+    const deletionsEl = li.querySelector('.color-fg-danger');
+
+    if (filenameLink) {
+      const filename = filenameLink.textContent?.trim() ?? '';
+      const additions = parseStatNumber(additionsEl?.textContent);
+      const deletions = parseStatNumber(deletionsEl?.textContent);
+
+      if (filename) {
+        files.push({ filename, additions, deletions });
+      }
+    }
+  });
+
+  return files;
+}
+
+function parseStatNumber(text: string | null | undefined): number {
+  if (!text) return 0;
+  const match = text.match(/[+-]?(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
 }
