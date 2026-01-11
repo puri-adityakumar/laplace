@@ -42,6 +42,7 @@ export interface GenerateRequest {
 export interface GenerateResponse {
   description?: string;
   error?: string;
+  usedFallback?: boolean;
 }
 
 export type MessageType = 'GENERATE_PR_DESCRIPTION' | 'GET_SETTINGS' | 'SCRAPE_CONTEXT';

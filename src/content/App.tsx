@@ -9,6 +9,7 @@ export function App() {
   const [status, setStatus] = useState<Status>('idle');
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
   const [toolbarContainer, setToolbarContainer] = useState<HTMLElement | null>(null);
   const retryRef = useRef(0);
 
@@ -101,6 +102,11 @@ export function App() {
       } else if (response.description) {
         setDescription(response.description);
         setStatus('preview');
+        
+        if (response.usedFallback) {
+          setToast('Limited data available. Add a GitHub PAT for better results.');
+          setTimeout(() => setToast(null), 5000);
+        }
       } else {
         throw new Error('No response received');
       }
@@ -187,6 +193,8 @@ export function App() {
       )}
 
       {status === 'success' && <SuccessState />}
+
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </>
   );
 }
@@ -596,6 +604,75 @@ function RefreshIcon() {
         strokeLinejoin="round"
         strokeWidth={2}
         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
+    </svg>
+  );
+}
+
+function Toast({ message, onClose }: { message: string; onClose: () => void }) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 80,
+        right: 16,
+        zIndex: 10000,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 16px',
+        backgroundColor: '#1f2937',
+        color: '#fff',
+        borderRadius: 8,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        fontSize: 13,
+        maxWidth: 360,
+        animation: 'slideIn 0.2s ease-out',
+      }}
+    >
+      <InfoIcon />
+      <div style={{ flex: 1 }}>
+        <p style={{ margin: 0 }}>{message}</p>
+        <a
+          href="https://github.com/settings/tokens"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: '#60a5fa',
+            fontSize: 12,
+            textDecoration: 'underline',
+            marginTop: 4,
+            display: 'inline-block',
+          }}
+        >
+          Create a GitHub token →
+        </a>
+      </div>
+      <button
+        onClick={onClose}
+        style={{
+          padding: 4,
+          backgroundColor: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          color: '#9ca3af',
+          borderRadius: 4,
+        }}
+      >
+        <CloseIcon />
+      </button>
+    </div>
+  );
+}
+
+function InfoIcon() {
+  return (
+    <svg style={{ width: 20, height: 20, color: '#60a5fa', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
       />
     </svg>
   );

@@ -120,7 +120,7 @@ async function handleGeneratePR(
       messages,
     });
 
-    return { description };
+    return { description, usedFallback };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to generate description';
     return { error: errorMessage };
