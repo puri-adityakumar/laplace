@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { scrapePRPage, getPRInfoFromURL, isNewPRPage, isPRPage, scrapeFallbackContext } from '../lib/dom-scraper';
+import { getSettings } from '../lib/storage';
 import type { ScrapedContext, GenerateResponse } from '../lib/types';
 
 type Status = 'idle' | 'loading' | 'preview' | 'error' | 'success';
@@ -11,9 +12,25 @@ export function App() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [toolbarContainer, setToolbarContainer] = useState<HTMLElement | null>(null);
+  const [autoInject, setAutoInject] = useState(true);
   const retryRef = useRef(0);
 
   useEffect(() => {
+    getSettings().then((settings) => {
+      setAutoInject(settings.autoInject);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!autoInject) {
+      const container = document.getElementById('laplace-toolbar-container');
+      if (container) {
+        container.remove();
+        setToolbarContainer(null);
+      }
+      return;
+    }
+
     const findToolbar = () => {
       const selectors = [
         '.js-write-bucket .toolbar-commenting',
@@ -61,7 +78,7 @@ export function App() {
     observer.observe(document.body, { childList: true, subtree: true });
 
     return () => observer.disconnect();
-  }, [toolbarContainer]);
+  }, [toolbarContainer, autoInject]);
 
   const handleGenerate = useCallback(async () => {
     setStatus('loading');

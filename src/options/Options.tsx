@@ -151,6 +151,34 @@ export function Options() {
               }
               options={STYLE_OPTIONS}
             />
+
+            <div className="flex items-center justify-between py-2">
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Auto-inject button
+                </label>
+                <p className="text-xs text-gray-500">
+                  Automatically show the generate button on PR pages
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={settings.autoInject}
+                onClick={() =>
+                  setSettings({ ...settings, autoInject: !settings.autoInject })
+                }
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  settings.autoInject ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    settings.autoInject ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-4 pt-4 border-t">

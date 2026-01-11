@@ -14,6 +14,7 @@ export interface Settings {
   githubPat: string;
   model: Model;
   style: DescriptionStyle;
+  autoInject: boolean;
 }
 
 export interface PRContext {

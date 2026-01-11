@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
   githubPat: '',
   model: 'anthropic/claude-sonnet-4',
   style: 'medium',
+  autoInject: true,
 };
 
 export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
