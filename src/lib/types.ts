@@ -1,11 +1,12 @@
 export type Provider = 'openrouter';
 
 export type Model =
-  | 'anthropic/claude-sonnet-4'
-  | 'openai/gpt-4o'
-  | 'openai/gpt-4o-mini'
-  | 'meta-llama/llama-3.1-70b-instruct'
-  | 'mistralai/mistral-large';
+  | 'openai/gpt-oss-120b:free'
+  | 'qwen/qwen3-coder:free'
+  | 'meta-llama/llama-3.3-70b-instruct:free'
+  | 'mistralai/devstral-2512:free'
+  | 'anthropic/claude-sonnet-4.5'
+  | string;
 
 export type DescriptionStyle = 'short' | 'medium' | 'detailed';
 

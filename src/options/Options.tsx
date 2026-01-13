@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button, Input, Select, RadioGroup } from '../ui';
+import { Button, Input, RadioGroup, ModelSelector } from '../ui';
 import { getSettings, saveSettings } from '../lib/storage';
-import { MODELS } from '../lib/constants';
 import type { Settings, DescriptionStyle } from '../lib/types';
 
 const STYLE_OPTIONS = [
@@ -130,16 +129,14 @@ export function Options() {
               Generation Settings
             </h2>
 
-            <Select
-              label="AI Model"
+            <ModelSelector
               value={settings.model}
-              onChange={(e) =>
+              onChange={(modelId) =>
                 setSettings({
                   ...settings,
-                  model: e.target.value as Settings['model'],
+                  model: modelId,
                 })
               }
-              options={MODELS.map((m) => ({ value: m.id, label: m.name }))}
             />
 
             <RadioGroup

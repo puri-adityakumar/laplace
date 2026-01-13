@@ -1,17 +1,17 @@
 import type { Model, Settings } from './types';
 
-export const MODELS: { id: Model; name: string }[] = [
-  { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4' },
-  { id: 'openai/gpt-4o', name: 'GPT-4o' },
-  { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini' },
-  { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B' },
-  { id: 'mistralai/mistral-large', name: 'Mistral Large' },
+export const MODELS: { id: Model; name: string; free?: boolean }[] = [
+  { id: 'openai/gpt-oss-120b:free', name: 'GPT-OSS 120B', free: true },
+  { id: 'qwen/qwen3-coder:free', name: 'Qwen3 Coder', free: true },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B', free: true },
+  { id: 'mistralai/devstral-2512:free', name: 'Devstral', free: true },
+  { id: 'anthropic/claude-sonnet-4.5', name: 'Claude Sonnet 4.5' },
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
   openRouterApiKey: '',
   githubPat: '',
-  model: 'anthropic/claude-sonnet-4',
+  model: 'openai/gpt-oss-120b:free',
   style: 'medium',
   autoInject: true,
 };
