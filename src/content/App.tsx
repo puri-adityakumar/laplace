@@ -9,20 +9,23 @@ type Status = 'idle' | 'loading' | 'preview' | 'error' | 'success';
 export function App() {
   const [status, setStatus] = useState<Status>('idle');
   const [description, setDescription] = useState('');
+  const [generatedTitle, setGeneratedTitle] = useState('');
   const [error, setError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [toolbarContainer, setToolbarContainer] = useState<HTMLElement | null>(null);
-  const [autoInject, setAutoInject] = useState(true);
+  const [showButton, setShowButton] = useState(true);
+  const [autoInsert, setAutoInsert] = useState(false);
   const retryRef = useRef(0);
 
   useEffect(() => {
     getSettings().then((settings) => {
-      setAutoInject(settings.autoInject);
+      setShowButton(settings.autoInject);
+      setAutoInsert(settings.autoInject);
     });
   }, []);
 
   useEffect(() => {
-    if (!autoInject) {
+    if (!showButton) {
       const container = document.getElementById('laplace-toolbar-container');
       if (container) {
         container.remove();
@@ -78,7 +81,7 @@ export function App() {
     observer.observe(document.body, { childList: true, subtree: true });
 
     return () => observer.disconnect();
-  }, [toolbarContainer, autoInject]);
+  }, [toolbarContainer, showButton]);
 
   const handleGenerate = useCallback(async () => {
     setStatus('loading');
@@ -118,11 +121,23 @@ export function App() {
         setStatus('error');
       } else if (response.description) {
         setDescription(response.description);
-        setStatus('preview');
+        setGeneratedTitle(response.title || '');
         
         if (response.usedFallback) {
           setToast('Limited data available. Add a GitHub PAT for better results.');
           setTimeout(() => setToast(null), 5000);
+        }
+
+        if (autoInsert) {
+          insertContent(response.description, response.title);
+          setStatus('success');
+          setTimeout(() => {
+            setStatus('idle');
+            setDescription('');
+            setGeneratedTitle('');
+          }, 2000);
+        } else {
+          setStatus('preview');
         }
       } else {
         throw new Error('No response received');
@@ -132,10 +147,10 @@ export function App() {
       setError(message);
       setStatus('error');
     }
-  }, []);
+  }, [autoInsert]);
 
-  const handleInsert = useCallback(() => {
-    const selectors = [
+  const insertContent = (desc: string, title?: string) => {
+    const descSelectors = [
       'textarea[name="pull_request[body]"]',
       'textarea#pull_request_body',
       'textarea.comment-form-textarea',
@@ -143,48 +158,108 @@ export function App() {
       '#pull_request_body',
     ];
 
-    let textarea: HTMLTextAreaElement | null = null;
-    for (const selector of selectors) {
-      textarea = document.querySelector<HTMLTextAreaElement>(selector);
-      if (textarea) break;
+    let descTextarea: HTMLTextAreaElement | null = null;
+    for (const selector of descSelectors) {
+      descTextarea = document.querySelector<HTMLTextAreaElement>(selector);
+      if (descTextarea) break;
     }
 
-    if (textarea) {
-      textarea.focus();
-      textarea.value = description;
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-      textarea.dispatchEvent(new Event('change', { bubbles: true }));
-      
+    if (descTextarea) {
+      descTextarea.focus();
+      descTextarea.value = desc;
+      descTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+      descTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    if (title) {
+      const titleSelectors = [
+        'input[name="pull_request[title]"]',
+        'input#pull_request_title',
+        'input[aria-label="Title"]',
+      ];
+
+      let titleInput: HTMLInputElement | null = null;
+      for (const selector of titleSelectors) {
+        titleInput = document.querySelector<HTMLInputElement>(selector);
+        if (titleInput) break;
+      }
+
+      if (titleInput) {
+        titleInput.focus();
+        titleInput.value = title;
+        titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+
+    return !!descTextarea;
+  };
+
+  const handleInsert = useCallback((insertTitle = true) => {
+    const success = insertContent(description, insertTitle ? generatedTitle : undefined);
+    
+    if (success) {
       setStatus('success');
       setTimeout(() => {
         setStatus('idle');
         setDescription('');
+        setGeneratedTitle('');
       }, 2000);
     } else {
       setError('Could not find the description textarea. Try copying instead.');
       setStatus('error');
     }
-  }, [description]);
+  }, [description, generatedTitle]);
+
+  const handleInsertTitleOnly = useCallback(() => {
+    if (!generatedTitle) return;
+    
+    const titleSelectors = [
+      'input[name="pull_request[title]"]',
+      'input#pull_request_title',
+      'input[aria-label="Title"]',
+    ];
+
+    let titleInput: HTMLInputElement | null = null;
+    for (const selector of titleSelectors) {
+      titleInput = document.querySelector<HTMLInputElement>(selector);
+      if (titleInput) break;
+    }
+
+    if (titleInput) {
+      titleInput.focus();
+      titleInput.value = generatedTitle;
+      titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+      titleInput.dispatchEvent(new Event('change', { bubbles: true }));
+      setToast('Title inserted!');
+      setTimeout(() => setToast(null), 2000);
+    }
+  }, [generatedTitle]);
 
   const handleClose = useCallback(() => {
     setStatus('idle');
     setDescription('');
+    setGeneratedTitle('');
     setError('');
   }, []);
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(description);
+      const textToCopy = generatedTitle 
+        ? `${generatedTitle}\n\n${description}` 
+        : description;
+      await navigator.clipboard.writeText(textToCopy);
       setStatus('success');
       setTimeout(() => {
         setStatus('idle');
         setDescription('');
+        setGeneratedTitle('');
       }, 2000);
     } catch {
       setError('Failed to copy to clipboard');
       setStatus('error');
     }
-  }, [description]);
+  }, [description, generatedTitle]);
 
   const toolbarButton = toolbarContainer ? createPortal(
     <ToolbarButton status={status} onClick={handleGenerate} />,
@@ -202,7 +277,9 @@ export function App() {
       {status === 'preview' && (
         <PreviewPanel
           description={description}
+          title={generatedTitle}
           onInsert={handleInsert}
+          onInsertTitleOnly={handleInsertTitleOnly}
           onCopy={handleCopy}
           onClose={handleClose}
           onRegenerate={handleGenerate}
@@ -403,13 +480,17 @@ function ErrorState({
 
 function PreviewPanel({
   description,
+  title,
   onInsert,
+  onInsertTitleOnly,
   onCopy,
   onClose,
   onRegenerate,
 }: {
   description: string;
-  onInsert: () => void;
+  title?: string;
+  onInsert: (insertTitle?: boolean) => void;
+  onInsertTitleOnly: () => void;
   onCopy: () => void;
   onClose: () => void;
   onRegenerate: () => void;
@@ -425,7 +506,7 @@ function PreviewPanel({
         right: 16,
         zIndex: 9999,
         width: 420,
-        maxHeight: '70vh',
+        maxHeight: '80vh',
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#fff',
@@ -470,23 +551,57 @@ function PreviewPanel({
         style={{
           flex: 1,
           overflow: 'auto',
-          padding: 16,
           minHeight: 120,
-          maxHeight: 400,
+          maxHeight: 450,
         }}
       >
-        <pre
-          style={{
-            margin: 0,
-            fontSize: 13,
-            color: '#374151',
-            whiteSpace: 'pre-wrap',
-            fontFamily: 'inherit',
-            lineHeight: 1.6,
-          }}
-        >
-          {description}
-        </pre>
+        {title && (
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>
+                📝 Title
+              </span>
+              <button
+                onClick={onInsertTitleOnly}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: 11,
+                  fontWeight: 500,
+                  backgroundColor: '#f3f4f6',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: 4,
+                  cursor: 'pointer',
+                }}
+              >
+                Insert Title
+              </button>
+            </div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#111827' }}>
+              {title}
+            </p>
+          </div>
+        )}
+
+        <div style={{ padding: 16 }}>
+          {title && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+              📄 Description
+            </span>
+          )}
+          <pre
+            style={{
+              margin: 0,
+              fontSize: 13,
+              color: '#374151',
+              whiteSpace: 'pre-wrap',
+              fontFamily: 'inherit',
+              lineHeight: 1.6,
+            }}
+          >
+            {description}
+          </pre>
+        </div>
       </div>
 
       <div
@@ -501,7 +616,7 @@ function PreviewPanel({
         }}
       >
         <button
-          onClick={onInsert}
+          onClick={() => onInsert(true)}
           style={{
             flex: 1,
             padding: '8px 12px',
@@ -514,8 +629,26 @@ function PreviewPanel({
             cursor: 'pointer',
           }}
         >
-          Insert into PR
+          {title ? 'Insert Both' : 'Insert into PR'}
         </button>
+        {title && (
+          <button
+            onClick={() => onInsert(false)}
+            title="Insert description only"
+            style={{
+              padding: '8px 12px',
+              fontSize: 13,
+              fontWeight: 500,
+              backgroundColor: '#f3f4f6',
+              color: '#374151',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+            }}
+          >
+            Desc Only
+          </button>
+        )}
         <button
           onClick={onCopy}
           title="Copy to clipboard"

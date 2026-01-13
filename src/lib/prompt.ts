@@ -1,26 +1,42 @@
 import type { PRContext, DescriptionStyle } from './types';
 import type { ChatMessage } from './openrouter';
 
+export interface PromptOptions {
+  style: DescriptionStyle;
+  generateTitle: boolean;
+  customPrompt: string;
+}
+
 const STYLE_INSTRUCTIONS: Record<DescriptionStyle, string> = {
-  short: `Write a brief PR description in 2-3 sentences. Focus only on the main change and its purpose.`,
-  medium: `Write a balanced PR description with:
-- A brief summary (1-2 sentences)
-- Key changes as bullet points
-- Any notable implementation details`,
-  detailed: `Write a comprehensive PR description with:
-- A clear summary of what this PR does
-- Detailed breakdown of all changes
-- Technical implementation notes
-- Any breaking changes or migration notes
-- Testing considerations`,
+  short: `DETAIL LEVEL: SHORT
+- 2–3 sentence high-level overview of the change and its purpose
+- Bullet list of key changes
+- Each bullet should be a single, clear line`,
+  medium: `DETAIL LEVEL: MEDIUM
+- One short summary paragraph describing the change and motivation
+- Bullet list including:
+  - Affected file names or modules
+  - Major changes per file/module
+  - Why each change was necessary or beneficial`,
+  detailed: `DETAIL LEVEL: LARGE
+- Clear summary at the top
+- Include the following sections when applicable:
+  - Context / Problem statement
+  - Solution overview
+  - Before vs After behavior
+  - File-level or component-level breakdown
+  - Technical or architectural notes
+  - Testing performed / verification steps
+  - Potential risks or breaking changes
+- Include a simple diagram or ASCII flow if it helps explain logic or architecture`,
 };
 
 export function buildPrompt(
   context: PRContext,
-  style: DescriptionStyle
+  options: PromptOptions
 ): ChatMessage[] {
-  const systemPrompt = buildSystemPrompt(style);
-  const userPrompt = buildUserPrompt(context);
+  const systemPrompt = buildSystemPrompt(options);
+  const userPrompt = buildUserPrompt(context, options);
 
   return [
     { role: 'system', content: systemPrompt },
@@ -28,22 +44,46 @@ export function buildPrompt(
   ];
 }
 
-function buildSystemPrompt(style: DescriptionStyle): string {
-  return `You are a helpful assistant that writes clear, professional GitHub pull request descriptions.
+function buildSystemPrompt(options: PromptOptions): string {
+  const titleInstruction = options.generateTitle
+    ? `\n\nYou must also generate a concise PR title. Format your response as:
+TITLE: <your suggested title here>
 
-${STYLE_INSTRUCTIONS[style]}
+DESCRIPTION:
+<your description here>`
+    : '';
 
-Guidelines:
+  if (options.customPrompt.trim()) {
+    return options.customPrompt.trim() + titleInstruction;
+  }
+
+  return `You are a helpful assistant that writes clear, professional, industry-standard GitHub pull request descriptions.
+
+GOAL
+Produce reviewer-friendly PR titles and descriptions that clearly explain WHAT changed and WHY, following common GitHub PR template best practices.
+
+GENERAL RULES
 - Use Markdown formatting
-- Be concise and precise
-- Focus on WHAT changed and WHY
-- Don't include unnecessary pleasantries
-- Don't mention that you're an AI
-- If the changes are unclear, describe what you can infer from the diff
-- Use present tense ("Adds feature" not "Added feature")`;
+- Use present tense and imperative mood (e.g., "Add validation", not "Added validation")
+- Be concise, clear, and technical
+- Avoid pleasantries and filler text
+- Do not mention that you are an AI
+- Infer intent from filenames, code patterns, and diffs if full context is missing
+- Optimize for fast code review and long-term maintainability
+
+${STYLE_INSTRUCTIONS[options.style]}
+
+CONTENT GUIDELINES
+- Focus on "what changed" and "why it changed"
+- Assume the reviewer has not seen the diff yet
+- Prefer bullet points over long paragraphs
+- Call out important design decisions or trade-offs
+- Follow common GitHub PR template structure (summary, changes, testing, references)
+
+If information is missing, make reasonable assumptions and clearly describe what can be inferred.${titleInstruction}`;
 }
 
-function buildUserPrompt(context: PRContext): string {
+function buildUserPrompt(context: PRContext, _options: PromptOptions): string {
   const parts: string[] = [];
 
   parts.push(`# Pull Request Information`);
@@ -90,4 +130,35 @@ function buildUserPrompt(context: PRContext): string {
 
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
+}
+
+export function parseGeneratedResponse(
+  response: string,
+  includesTitle: boolean
+): { title?: string; description: string } {
+  if (!includesTitle) {
+    return { description: response.trim() };
+  }
+
+  const titleMatch = response.match(/^TITLE:\s*(.+?)(?:\n|$)/i);
+  const descriptionMatch = response.match(/DESCRIPTION:\s*([\s\S]*)/i);
+
+  if (titleMatch && descriptionMatch) {
+    return {
+      title: titleMatch[1].trim(),
+      description: descriptionMatch[1].trim(),
+    };
+  }
+
+  const lines = response.split('\n');
+  const firstLine = lines[0]?.trim();
+  
+  if (firstLine && !firstLine.startsWith('#') && firstLine.length < 100) {
+    return {
+      title: firstLine,
+      description: lines.slice(1).join('\n').trim(),
+    };
+  }
+
+  return { description: response.trim() };
 }

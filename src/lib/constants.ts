@@ -14,6 +14,8 @@ export const DEFAULT_SETTINGS: Settings = {
   model: 'openai/gpt-oss-120b:free',
   style: 'medium',
   autoInject: true,
+  generateTitle: false,
+  customPrompt: '',
 };
 
 export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';

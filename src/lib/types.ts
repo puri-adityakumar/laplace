@@ -16,6 +16,8 @@ export interface Settings {
   model: Model;
   style: DescriptionStyle;
   autoInject: boolean;
+  generateTitle: boolean;
+  customPrompt: string;
 }
 
 export interface PRContext {
@@ -43,6 +45,7 @@ export interface GenerateRequest {
 
 export interface GenerateResponse {
   description?: string;
+  title?: string;
   error?: string;
   usedFallback?: boolean;
 }

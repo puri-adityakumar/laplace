@@ -1,6 +1,6 @@
 import { getSettings } from '../lib/storage';
 import { fetchPRContext, fetchCompareDiff } from '../lib/github-api';
-import { buildPrompt } from '../lib/prompt';
+import { buildPrompt, parseGeneratedResponse } from '../lib/prompt';
 import { generateCompletion } from '../lib/openrouter';
 import type { PRContext, GenerateResponse, ScrapedContext } from '../lib/types';
 
@@ -112,15 +112,27 @@ async function handleGeneratePR(
     usedFallback,
   };
 
-  const messages = buildPrompt(prContext, settings.style);
+  const promptOptions = {
+    style: settings.style,
+    generateTitle: settings.generateTitle,
+    customPrompt: settings.customPrompt,
+  };
+
+  const messages = buildPrompt(prContext, promptOptions);
 
   try {
-    const description = await generateCompletion(settings.openRouterApiKey, {
+    const rawResponse = await generateCompletion(settings.openRouterApiKey, {
       model: settings.model,
       messages,
     });
 
-    return { description, usedFallback };
+    const parsed = parseGeneratedResponse(rawResponse, settings.generateTitle);
+
+    return { 
+      description: parsed.description, 
+      title: parsed.title,
+      usedFallback,
+    };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Failed to generate description';
     return { error: errorMessage };
