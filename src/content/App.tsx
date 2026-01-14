@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { scrapePRPage, getPRInfoFromURL, isNewPRPage, isPRPage, scrapeFallbackContext } from '../lib/dom-scraper';
+import { scrapePRPage, getPRInfoFromURL, isNewPRPage, scrapeFallbackContext } from '../lib/dom-scraper';
 import { getSettings } from '../lib/storage';
+import { injectionManager, CONTAINER_READY_EVENT } from '../lib/injection-manager';
 import type { ScrapedContext, GenerateResponse } from '../lib/types';
 
 type Status = 'idle' | 'loading' | 'preview' | 'error' | 'success';
@@ -15,73 +16,42 @@ export function App() {
   const [toolbarContainer, setToolbarContainer] = useState<HTMLElement | null>(null);
   const [showButton, setShowButton] = useState(true);
   const [autoInsert, setAutoInsert] = useState(false);
-  const retryRef = useRef(0);
 
+  // Load settings
   useEffect(() => {
     getSettings().then((settings) => {
-      setShowButton(settings.autoInject);
-      setAutoInsert(settings.autoInject);
+      setShowButton(true); // Always show button
+      setAutoInsert(settings.autoInject); // autoInject only controls preview behavior
     });
   }, []);
 
+  // Listen for container ready events from InjectionManager
   useEffect(() => {
     if (!showButton) {
-      const container = document.getElementById('laplace-toolbar-container');
-      if (container) {
-        container.remove();
-        setToolbarContainer(null);
-      }
+      setToolbarContainer(null);
       return;
     }
 
-    const findToolbar = () => {
-      const selectors = [
-        '.js-write-bucket .toolbar-commenting',
-        '.comment-form-head .toolbar-commenting', 
-        '.tabnav-tabs',
-        '.js-previewable-comment-form .tabnav',
-        '[data-view-component="true"].ActionBar',
-      ];
-
-      for (const selector of selectors) {
-        const toolbar = document.querySelector(selector);
-        if (toolbar) {
-          let container = document.getElementById('laplace-toolbar-container');
-          if (!container) {
-            container = document.createElement('div');
-            container.id = 'laplace-toolbar-container';
-            container.style.display = 'inline-flex';
-            container.style.alignItems = 'center';
-            container.style.marginLeft = '8px';
-            toolbar.appendChild(container);
-          }
-          setToolbarContainer(container);
-          return true;
-        }
-      }
-      return false;
+    // Handler for when InjectionManager creates/recreates the container
+    const handleContainerReady = (event: Event) => {
+      const customEvent = event as CustomEvent<{ container: HTMLElement }>;
+      console.log('[Laplace] Container ready event received');
+      setToolbarContainer(customEvent.detail.container);
     };
 
-    const tryFind = () => {
-      if (!findToolbar() && retryRef.current < 10) {
-        retryRef.current++;
-        setTimeout(tryFind, 500);
-      }
-    };
-
-    if (isPRPage()) {
-      tryFind();
+    // Check if container already exists (for initial mount)
+    const existingContainer = injectionManager.getContainer();
+    if (existingContainer) {
+      setToolbarContainer(existingContainer);
     }
 
-    const observer = new MutationObserver(() => {
-      if (isPRPage() && !toolbarContainer) {
-        findToolbar();
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    // Listen for future container ready events
+    window.addEventListener(CONTAINER_READY_EVENT, handleContainerReady);
 
-    return () => observer.disconnect();
-  }, [toolbarContainer, showButton]);
+    return () => {
+      window.removeEventListener(CONTAINER_READY_EVENT, handleContainerReady);
+    };
+  }, [showButton]);
 
   const handleGenerate = useCallback(async () => {
     setStatus('loading');

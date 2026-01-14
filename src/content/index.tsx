@@ -1,12 +1,15 @@
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { injectionManager } from '../lib/injection-manager';
 import './styles.css';
 
 const ROOT_ID = 'laplace-root';
 
 function init() {
-  if (!isPRPage()) return;
+  // Initialize the injection manager (handles PR page detection internally)
+  injectionManager.init();
 
+  // Mount React app if not already mounted
   const existingRoot = document.getElementById(ROOT_ID);
   if (existingRoot) return;
 
@@ -18,22 +21,9 @@ function init() {
   root.render(<App />);
 }
 
-function isPRPage(): boolean {
-  const path = window.location.pathname;
-  return /\/pull\/\d+/.test(path) || path.includes('/compare/');
-}
-
+// Initialize when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
 }
-
-let lastUrl = location.href;
-new MutationObserver(() => {
-  const url = location.href;
-  if (url !== lastUrl) {
-    lastUrl = url;
-    setTimeout(init, 500);
-  }
-}).observe(document, { subtree: true, childList: true });

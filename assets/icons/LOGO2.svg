@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .logo-shape { fill: #F26522; }
+      .bg-rect { fill: #0D1F1F; } 
+    </style>
+  </defs>
+
+  <g class="logo-shape">
+    <path d="M 0 24 Q 0 0 24 0 L 92 0 L 92 92 L 0 92 Z" />
+    
+    <rect x="108" y="0" width="84" height="92" />
+    
+    <path d="M 208 0 L 276 0 Q 300 0 300 24 L 300 92 Z" />
+
+    <rect x="0" y="108" width="92" height="84" />
+    
+    <path d="M 108 108 L 192 108 L 192 192 Z" />
+    
+    <rect x="208" y="108" width="92" height="84" />
+
+    <path d="M 0 208 L 92 208 L 92 300 Z" />
+    
+    <rect x="108" y="208" width="84" height="92" />
+    
+    <path d="M 208 208 L 300 208 L 300 276 Q 300 300 276 300 L 208 300 Z" />
+  </g>
+</svg>
