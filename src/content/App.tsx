@@ -22,9 +22,24 @@ function isPRPage(): boolean {
 // DOM ready check
 function isPRDOMReady(): boolean {
   if (isNewPRPath(location.pathname)) {
-    return !!document.querySelector('textarea[name="pull_request[title]"]');
+    // Compare page - check for compare view OR PR form
+    // The PR form only appears after clicking "Create pull request"
+    // So we also accept the compare header as "ready"
+    return !!(
+      document.querySelector('.js-compare-pr') ||  // Compare container
+      document.querySelector('[data-target="compare-tab.compareDetails"]') ||
+      document.querySelector('.js-details-container') ||
+      document.querySelector('input#pull_request_title') ||
+      document.querySelector('textarea[name="pull_request[title]"]') ||
+      document.querySelector('.Subhead--spacious') // Compare header
+    );
   }
-  return !!document.querySelector('.js-issue-title');
+  // Existing PR page
+  return !!(
+    document.querySelector('.js-issue-title') ||
+    document.querySelector('[data-testid="issue-title"]') ||
+    document.querySelector('.gh-header-title')
+  );
 }
 
 // Session storage for toast throttling
@@ -54,7 +69,7 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [showHint, setShowHint] = useState(false);
   const [autoInsert, setAutoInsert] = useState(false);
-  const lastPathRef = useRef(location.pathname);
+  const lastPathRef = useRef<string | null>(null); // null = not yet initialized
 
   // Load settings
   useEffect(() => {
@@ -65,6 +80,9 @@ export function App() {
 
   // Check if should show hint on current page
   const checkAndShowHint = useCallback(() => {
+    const path = location.pathname;
+    console.log('[Laplace] Checking page:', path, 'isPRPage:', isPRPage());
+    
     if (!isPRPage()) {
       setShowHint(false);
       return;
@@ -72,52 +90,66 @@ export function App() {
 
     // Wait for DOM to be ready
     const checkReady = (attempts = 0) => {
-      if (isPRDOMReady()) {
-        if (!hasSeenHint(location.pathname)) {
+      const ready = isPRDOMReady();
+      console.log('[Laplace] DOM ready check:', ready, 'attempt:', attempts);
+      
+      if (ready) {
+        if (!hasSeenHint(path)) {
+          console.log('[Laplace] Showing hint toast');
           setShowHint(true);
-          markHintSeen(location.pathname);
+          markHintSeen(path);
           // Auto-dismiss after 5 seconds
           setTimeout(() => setShowHint(false), 5000);
+        } else {
+          console.log('[Laplace] Hint already seen for this path');
         }
-      } else if (attempts < 10) {
-        setTimeout(() => checkReady(attempts + 1), 300);
+      } else if (attempts < 20) {
+        // Retry up to 20 times at 500ms = 10 seconds max
+        setTimeout(() => checkReady(attempts + 1), 500);
+      } else {
+        console.log('[Laplace] Max attempts reached, DOM not ready');
       }
     };
     checkReady();
   }, []);
 
-  // SPA navigation detection
-  useEffect(() => {
-    const handlePathChange = () => {
-      const currentPath = location.pathname;
-      if (currentPath !== lastPathRef.current) {
-        lastPathRef.current = currentPath;
-        // Reset state on navigation
-        setStatus('idle');
-        setDescription('');
-        setGeneratedTitle('');
-        setError('');
-        setShowHint(false);
-        // Check new page
-        checkAndShowHint();
-      }
-    };
-
-    // MutationObserver for PJAX navigation
-    const observer = new MutationObserver(handlePathChange);
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // popstate for browser back/forward
-    window.addEventListener('popstate', handlePathChange);
-
-    // Initial check
+  // Navigation handler - called on path changes
+  const handleNavigation = useCallback(() => {
+    const currentPath = location.pathname;
+    
+    // Skip if path hasn't changed
+    if (currentPath === lastPathRef.current) return;
+    
+    console.log('[Laplace] Navigation detected:', lastPathRef.current, '→', currentPath);
+    lastPathRef.current = currentPath;
+    
+    // Reset state on navigation
+    setStatus('idle');
+    setDescription('');
+    setGeneratedTitle('');
+    setError('');
+    setShowHint(false);
+    
+    // Check new page
     checkAndShowHint();
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('popstate', handlePathChange);
-    };
   }, [checkAndShowHint]);
+
+  // SPA navigation detection via polling (more reliable than MutationObserver)
+  useEffect(() => {
+    // Run immediately on mount
+    handleNavigation();
+    
+    // Poll for SPA navigation (GitHub PJAX/Turbo)
+    const intervalId = window.setInterval(handleNavigation, 500);
+    
+    // Also listen for back/forward
+    window.addEventListener('popstate', handleNavigation);
+    
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('popstate', handleNavigation);
+    };
+  }, [handleNavigation]);
 
   const handleGenerate = useCallback(async () => {
     if (!isPRPage()) return;
@@ -198,6 +230,21 @@ export function App() {
     };
     window.addEventListener('keydown', handleKeydown);
     return () => window.removeEventListener('keydown', handleKeydown);
+  }, [handleGenerate]);
+
+  // Listen for trigger from popup
+  useEffect(() => {
+    const handleMessage = (message: { type: string }, _sender: chrome.runtime.MessageSender, sendResponse: (response: unknown) => void) => {
+      if (message.type === 'TRIGGER_GENERATE') {
+        console.log('[Laplace] Received TRIGGER_GENERATE from popup');
+        handleGenerate();
+        sendResponse({ success: true });
+      }
+      return true; // Keep channel open for async response
+    };
+    
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
   }, [handleGenerate]);
 
   const insertContent = (desc: string, title?: string) => {

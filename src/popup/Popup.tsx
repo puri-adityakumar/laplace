@@ -4,10 +4,13 @@ import type { Settings } from '../lib/types';
 import { MODELS } from '../lib/constants';
 
 type Status = 'loading' | 'configured' | 'not-configured';
+type GenerateStatus = 'idle' | 'generating' | 'success' | 'error';
 
 export function Popup() {
   const [status, setStatus] = useState<Status>('loading');
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [generateStatus, setGenerateStatus] = useState<GenerateStatus>('idle');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     getSettings().then((s) => {
@@ -18,6 +21,33 @@ export function Popup() {
 
   const openOptions = () => {
     chrome.runtime.openOptionsPage();
+  };
+
+  const handleGenerate = async () => {
+    setGenerateStatus('generating');
+    setErrorMsg('');
+    
+    try {
+      // Send message to content script to trigger generation
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      if (!tab?.id || !tab.url?.includes('github.com')) {
+        setErrorMsg('Please open a GitHub PR or compare page');
+        setGenerateStatus('error');
+        return;
+      }
+      
+      // Inject and trigger generation via content script
+      await chrome.tabs.sendMessage(tab.id, { type: 'TRIGGER_GENERATE' });
+      setGenerateStatus('success');
+      
+      // Close popup after short delay
+      setTimeout(() => window.close(), 500);
+    } catch (err) {
+      console.error('Generate failed:', err);
+      setErrorMsg('Could not trigger generation. Make sure you\'re on a PR page.');
+      setGenerateStatus('error');
+    }
   };
 
   const getModelName = (modelId: string) => {
@@ -120,9 +150,54 @@ export function Popup() {
         </div>
       )}
 
+      {/* Generate Button */}
+      {status === 'configured' && (
+        <button
+          onClick={handleGenerate}
+          disabled={generateStatus === 'generating'}
+          className="w-full mt-3 px-3 py-2.5 text-sm font-medium bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-md hover:from-blue-700 hover:to-indigo-700 transition-all disabled:opacity-60 disabled:cursor-wait flex items-center justify-center gap-2"
+        >
+          {generateStatus === 'generating' ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Generating...
+            </>
+          ) : generateStatus === 'success' ? (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Done!
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              Generate PR Description
+            </>
+          )}
+        </button>
+      )}
+
+      {/* Error message */}
+      {generateStatus === 'error' && errorMsg && (
+        <p className="mt-2 text-xs text-red-600">{errorMsg}</p>
+      )}
+
+      {/* Keyboard shortcut hint */}
+      {status === 'configured' && (
+        <p className="mt-2 text-xs text-gray-400 text-center">
+          Or press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 font-mono">Alt+G</kbd> on any PR page
+        </p>
+      )}
+
       <button
         onClick={openOptions}
-        className="w-full mt-3 px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+        className="w-full mt-3 px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
       >
         {status === 'configured' ? 'Settings' : 'Configure Extension'}
       </button>
