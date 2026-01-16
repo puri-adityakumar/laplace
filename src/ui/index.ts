@@ -3,3 +3,4 @@ export { Input } from './Input';
 export { Select } from './Select';
 export { RadioGroup } from './RadioGroup';
 export { ModelSelector } from './ModelSelector';
+export { LaplaceLogo } from './LaplaceLogo';

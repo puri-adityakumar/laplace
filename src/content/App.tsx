@@ -1,11 +1,65 @@
-import { useState, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { scrapePRPage, getPRInfoFromURL, isNewPRPage, scrapeFallbackContext } from '../lib/dom-scraper';
 import { getSettings } from '../lib/storage';
-import { injectionManager, CONTAINER_READY_EVENT } from '../lib/injection-manager';
 import type { ScrapedContext, GenerateResponse } from '../lib/types';
 
 type Status = 'idle' | 'loading' | 'preview' | 'error' | 'success';
+
+// PR page detection (strict patterns)
+function isNewPRPath(pathname: string): boolean {
+  return /^\/[^/]+\/[^/]+\/compare\//.test(pathname);
+}
+
+function isExistingPRPath(pathname: string): boolean {
+  return /^\/[^/]+\/[^/]+\/pull\/\d+/.test(pathname);
+}
+
+function isPRPage(): boolean {
+  const path = location.pathname;
+  return isNewPRPath(path) || isExistingPRPath(path);
+}
+
+// DOM ready check
+function isPRDOMReady(): boolean {
+  if (isNewPRPath(location.pathname)) {
+    // Compare page - check for compare view OR PR form
+    // The PR form only appears after clicking "Create pull request"
+    // So we also accept the compare header as "ready"
+    return !!(
+      document.querySelector('.js-compare-pr') ||  // Compare container
+      document.querySelector('[data-target="compare-tab.compareDetails"]') ||
+      document.querySelector('.js-details-container') ||
+      document.querySelector('input#pull_request_title') ||
+      document.querySelector('textarea[name="pull_request[title]"]') ||
+      document.querySelector('.Subhead--spacious') // Compare header
+    );
+  }
+  // Existing PR page
+  return !!(
+    document.querySelector('.js-issue-title') ||
+    document.querySelector('[data-testid="issue-title"]') ||
+    document.querySelector('.gh-header-title')
+  );
+}
+
+// Session storage for toast throttling
+const TOAST_KEY_PREFIX = 'laplace-hint-seen:';
+
+function hasSeenHint(pathname: string): boolean {
+  try {
+    return sessionStorage.getItem(TOAST_KEY_PREFIX + pathname) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markHintSeen(pathname: string): void {
+  try {
+    sessionStorage.setItem(TOAST_KEY_PREFIX + pathname, '1');
+  } catch {
+    // ignore
+  }
+}
 
 export function App() {
   const [status, setStatus] = useState<Status>('idle');
@@ -13,47 +67,94 @@ export function App() {
   const [generatedTitle, setGeneratedTitle] = useState('');
   const [error, setError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
-  const [toolbarContainer, setToolbarContainer] = useState<HTMLElement | null>(null);
-  const [showButton, setShowButton] = useState(true);
+  const [showHint, setShowHint] = useState(false);
   const [autoInsert, setAutoInsert] = useState(false);
+  const lastPathRef = useRef<string | null>(null); // null = not yet initialized
 
   // Load settings
   useEffect(() => {
     getSettings().then((settings) => {
-      setShowButton(true); // Always show button
-      setAutoInsert(settings.autoInject); // autoInject only controls preview behavior
+      setAutoInsert(settings.autoInject);
     });
   }, []);
 
-  // Listen for container ready events from InjectionManager
-  useEffect(() => {
-    if (!showButton) {
-      setToolbarContainer(null);
+  // Check if should show hint on current page
+  const checkAndShowHint = useCallback(() => {
+    const path = location.pathname;
+    console.log('[Laplace] Checking page:', path, 'isPRPage:', isPRPage());
+    
+    if (!isPRPage()) {
+      setShowHint(false);
       return;
     }
 
-    // Handler for when InjectionManager creates/recreates the container
-    const handleContainerReady = (event: Event) => {
-      const customEvent = event as CustomEvent<{ container: HTMLElement }>;
-      console.log('[Laplace] Container ready event received');
-      setToolbarContainer(customEvent.detail.container);
+    // Wait for DOM to be ready
+    const checkReady = (attempts = 0) => {
+      const ready = isPRDOMReady();
+      console.log('[Laplace] DOM ready check:', ready, 'attempt:', attempts);
+      
+      if (ready) {
+        if (!hasSeenHint(path)) {
+          console.log('[Laplace] Showing hint toast');
+          setShowHint(true);
+          markHintSeen(path);
+          // Auto-dismiss after 5 seconds
+          setTimeout(() => setShowHint(false), 5000);
+        } else {
+          console.log('[Laplace] Hint already seen for this path');
+        }
+      } else if (attempts < 20) {
+        // Retry up to 20 times at 500ms = 10 seconds max
+        setTimeout(() => checkReady(attempts + 1), 500);
+      } else {
+        console.log('[Laplace] Max attempts reached, DOM not ready');
+      }
     };
+    checkReady();
+  }, []);
 
-    // Check if container already exists (for initial mount)
-    const existingContainer = injectionManager.getContainer();
-    if (existingContainer) {
-      setToolbarContainer(existingContainer);
-    }
+  // Navigation handler - called on path changes
+  const handleNavigation = useCallback(() => {
+    const currentPath = location.pathname;
+    
+    // Skip if path hasn't changed
+    if (currentPath === lastPathRef.current) return;
+    
+    console.log('[Laplace] Navigation detected:', lastPathRef.current, '→', currentPath);
+    lastPathRef.current = currentPath;
+    
+    // Reset state on navigation
+    setStatus('idle');
+    setDescription('');
+    setGeneratedTitle('');
+    setError('');
+    setShowHint(false);
+    
+    // Check new page
+    checkAndShowHint();
+  }, [checkAndShowHint]);
 
-    // Listen for future container ready events
-    window.addEventListener(CONTAINER_READY_EVENT, handleContainerReady);
-
+  // SPA navigation detection via polling (more reliable than MutationObserver)
+  useEffect(() => {
+    // Run immediately on mount
+    handleNavigation();
+    
+    // Poll for SPA navigation (GitHub PJAX/Turbo)
+    const intervalId = window.setInterval(handleNavigation, 500);
+    
+    // Also listen for back/forward
+    window.addEventListener('popstate', handleNavigation);
+    
     return () => {
-      window.removeEventListener(CONTAINER_READY_EVENT, handleContainerReady);
+      clearInterval(intervalId);
+      window.removeEventListener('popstate', handleNavigation);
     };
-  }, [showButton]);
+  }, [handleNavigation]);
 
   const handleGenerate = useCallback(async () => {
+    if (!isPRPage()) return;
+    
+    setShowHint(false);
     setStatus('loading');
     setError('');
 
@@ -118,6 +219,40 @@ export function App() {
       setStatus('error');
     }
   }, [autoInsert]);
+
+  // Keyboard shortcut: Alt+G
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        handleGenerate();
+      }
+    };
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  }, [handleGenerate]);
+
+  // Listen for messages from popup/background
+  useEffect(() => {
+    const handleMessage = (message: { type: string }, _sender: chrome.runtime.MessageSender, sendResponse: (response: unknown) => void) => {
+      if (message.type === 'PING') {
+        // Used to detect if content script is loaded
+        console.log('[Laplace] Received PING');
+        sendResponse({ success: true });
+        return;
+      }
+      
+      if (message.type === 'TRIGGER_GENERATE') {
+        console.log('[Laplace] Received TRIGGER_GENERATE');
+        handleGenerate();
+        sendResponse({ success: true });
+      }
+      return true; // Keep channel open for async response
+    };
+    
+    chrome.runtime.onMessage.addListener(handleMessage);
+    return () => chrome.runtime.onMessage.removeListener(handleMessage);
+  }, [handleGenerate]);
 
   const insertContent = (desc: string, title?: string) => {
     const descSelectors = [
@@ -231,19 +366,22 @@ export function App() {
     }
   }, [description, generatedTitle]);
 
-  const toolbarButton = toolbarContainer ? createPortal(
-    <ToolbarButton status={status} onClick={handleGenerate} />,
-    toolbarContainer
-  ) : null;
-
   return (
     <>
-      {toolbarButton}
+      {/* Hint Toast */}
+      {showHint && (
+        <HintToast onDismiss={() => setShowHint(false)} />
+      )}
+
+      {/* Loading State */}
+      {status === 'loading' && <LoadingState />}
       
+      {/* Error State */}
       {status === 'error' && (
         <ErrorState message={error} onRetry={handleGenerate} onClose={handleClose} />
       )}
 
+      {/* Preview Panel */}
       {status === 'preview' && (
         <PreviewPanel
           description={description}
@@ -256,63 +394,107 @@ export function App() {
         />
       )}
 
+      {/* Success State */}
       {status === 'success' && <SuccessState />}
 
+      {/* Info Toast (e.g., fallback warning) */}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
     </>
   );
 }
 
-function ToolbarButton({ status, onClick }: { status: Status; onClick: () => void }) {
-  const isLoading = status === 'loading';
-
+function HintToast({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={isLoading}
-      className="laplace-toolbar-btn"
+    <div
       style={{
-        display: 'inline-flex',
+        position: 'fixed',
+        bottom: 20,
+        right: 20,
+        zIndex: 10000,
+        display: 'flex',
         alignItems: 'center',
-        gap: '6px',
-        padding: '5px 12px',
-        fontSize: '12px',
-        fontWeight: 500,
-        color: '#fff',
-        backgroundColor: '#2563eb',
-        border: 'none',
-        borderRadius: '6px',
-        cursor: isLoading ? 'wait' : 'pointer',
-        opacity: isLoading ? 0.7 : 1,
-        transition: 'all 0.15s ease',
-      }}
-      onMouseEnter={(e) => {
-        if (!isLoading) e.currentTarget.style.backgroundColor = '#1d4ed8';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = '#2563eb';
+        gap: 12,
+        padding: '12px 16px',
+        backgroundColor: '#1a1a1a',
+        color: '#cccccc',
+        borderRadius: 10,
+        border: '1px solid #333333',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        fontSize: 13,
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
+        animation: 'slideUp 0.3s ease-out',
       }}
     >
-      {isLoading ? (
-        <>
-          <LoadingSpinner />
-          <span>Generating...</span>
-        </>
-      ) : (
-        <>
-          <SparklesIcon />
-          <span>Generate with AI</span>
-        </>
-      )}
-    </button>
+      <span style={{ fontSize: 18 }}>✨</span>
+      <div>
+        <p style={{ margin: 0, fontWeight: 500, color: '#4ade80' }}>Laplace detected a PR</p>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#888888' }}>
+          Press <kbd style={{
+            padding: '2px 6px',
+            backgroundColor: '#2a2a2a',
+            border: '1px solid #404040',
+            borderRadius: 4,
+            fontSize: 11,
+            fontWeight: 600,
+            color: '#cccccc',
+          }}>Alt+G</kbd> to generate description
+        </p>
+      </div>
+      <button
+        onClick={onDismiss}
+        style={{
+          padding: 4,
+          backgroundColor: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          color: '#666666',
+          borderRadius: 4,
+          marginLeft: 8,
+        }}
+      >
+        <CloseIcon />
+      </button>
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 20,
+        right: 20,
+        zIndex: 10000,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '14px 20px',
+        backgroundColor: '#1a1a1a',
+        color: '#cccccc',
+        borderRadius: 10,
+        border: '1px solid #333333',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        fontSize: 14,
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
+      }}
+    >
+      <LoadingSpinner />
+      <span style={{ color: '#4ade80' }}>Generating PR description...</span>
+    </div>
   );
 }
 
 function LoadingSpinner() {
   return (
     <svg
-      className="animate-spin"
-      style={{ width: 14, height: 14, animation: 'spin 1s linear infinite' }}
+      style={{ width: 18, height: 18, animation: 'spin 1s linear infinite' }}
       fill="none"
       viewBox="0 0 24 24"
     >
@@ -329,6 +511,12 @@ function LoadingSpinner() {
         fill="currentColor"
         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
       />
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </svg>
   );
 }
@@ -336,24 +524,26 @@ function LoadingSpinner() {
 function SuccessState() {
   return (
     <div
-      className="laplace-panel"
       style={{
         position: 'fixed',
-        bottom: 16,
-        right: 16,
-        zIndex: 9999,
+        bottom: 20,
+        right: 20,
+        zIndex: 10000,
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        padding: '12px 16px',
-        backgroundColor: '#ecfdf5',
-        border: '1px solid #a7f3d0',
-        borderRadius: 8,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        padding: '14px 20px',
+        backgroundColor: '#1a1a1a',
+        color: '#4ade80',
+        borderRadius: 10,
+        border: '1px solid #4ade80',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        fontSize: 14,
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
       <CheckIcon />
-      <span style={{ fontSize: 14, fontWeight: 500, color: '#065f46' }}>Done!</span>
+      <span style={{ fontWeight: 500 }}>Done!</span>
     </div>
   );
 }
@@ -371,18 +561,18 @@ function ErrorState({
 
   return (
     <div
-      className="laplace-panel"
       style={{
         position: 'fixed',
-        bottom: 16,
-        right: 16,
-        zIndex: 9999,
-        maxWidth: 350,
+        bottom: 20,
+        right: 20,
+        zIndex: 10000,
+        maxWidth: 360,
         padding: 16,
-        backgroundColor: '#fff',
-        border: '1px solid #fecaca',
-        borderRadius: 8,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        backgroundColor: '#1a1a1a',
+        border: '1px solid #ef4444',
+        borderRadius: 10,
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -390,20 +580,20 @@ function ErrorState({
           <ErrorIcon />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#991b1b' }}>Error</p>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#dc2626' }}>{message}</p>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#ef4444' }}>Error</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#fca5a5' }}>{message}</p>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             {isConfigError ? (
               <button
                 onClick={() => chrome.runtime.openOptionsPage()}
                 style={{
-                  padding: '6px 12px',
-                  fontSize: 12,
+                  padding: '8px 14px',
+                  fontSize: 13,
                   fontWeight: 500,
-                  backgroundColor: '#dbeafe',
-                  color: '#1e40af',
+                  backgroundColor: '#4ade80',
+                  color: '#1a1a1a',
                   border: 'none',
-                  borderRadius: 4,
+                  borderRadius: 6,
                   cursor: 'pointer',
                 }}
               >
@@ -413,13 +603,13 @@ function ErrorState({
               <button
                 onClick={onRetry}
                 style={{
-                  padding: '6px 12px',
-                  fontSize: 12,
+                  padding: '8px 14px',
+                  fontSize: 13,
                   fontWeight: 500,
-                  backgroundColor: '#fee2e2',
-                  color: '#991b1b',
-                  border: 'none',
-                  borderRadius: 4,
+                  backgroundColor: '#2a2a2a',
+                  color: '#fca5a5',
+                  border: '1px solid #404040',
+                  borderRadius: 6,
                   cursor: 'pointer',
                 }}
               >
@@ -429,13 +619,13 @@ function ErrorState({
             <button
               onClick={onClose}
               style={{
-                padding: '6px 12px',
-                fontSize: 12,
+                padding: '8px 14px',
+                fontSize: 13,
                 fontWeight: 500,
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                border: 'none',
-                borderRadius: 4,
+                backgroundColor: '#2a2a2a',
+                color: '#cccccc',
+                border: '1px solid #404040',
+                borderRadius: 6,
                 cursor: 'pointer',
               }}
             >
@@ -469,77 +659,72 @@ function PreviewPanel({
 
   return (
     <div
-      className="laplace-panel"
       style={{
         position: 'fixed',
-        bottom: 16,
-        right: 16,
-        zIndex: 9999,
+        bottom: 20,
+        right: 20,
+        zIndex: 10000,
         width: 420,
         maxHeight: '80vh',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#fff',
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+        backgroundColor: '#1a1a1a',
+        border: '1px solid #333333',
+        borderRadius: 12,
+        boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
+      {/* Header */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 16px',
-          borderBottom: '1px solid #e5e7eb',
-          backgroundColor: '#f9fafb',
-          borderRadius: '8px 8px 0 0',
+          padding: '14px 18px',
+          borderBottom: '1px solid #333333',
+          backgroundColor: '#222222',
+          borderRadius: '12px 12px 0 0',
         }}
       >
         <div>
-          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#111827' }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#4ade80' }}>
             Preview
           </h3>
-          <p style={{ margin: 0, fontSize: 11, color: '#6b7280' }}>{wordCount} words</p>
+          <p style={{ margin: 0, fontSize: 11, color: '#888888' }}>{wordCount} words</p>
         </div>
         <button
           onClick={onClose}
           style={{
-            padding: 4,
+            padding: 6,
             backgroundColor: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            color: '#9ca3af',
-            borderRadius: 4,
+            color: '#666666',
+            borderRadius: 6,
           }}
         >
           <CloseIcon />
         </button>
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          overflow: 'auto',
-          minHeight: 120,
-          maxHeight: 450,
-        }}
-      >
+      {/* Content */}
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 120, maxHeight: 450 }}>
         {title && (
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #333333' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#888888', textTransform: 'uppercase' }}>
                 📝 Title
               </span>
               <button
                 onClick={onInsertTitleOnly}
                 style={{
-                  padding: '4px 8px',
+                  padding: '4px 10px',
                   fontSize: 11,
                   fontWeight: 500,
-                  backgroundColor: '#f3f4f6',
-                  color: '#374151',
-                  border: 'none',
+                  backgroundColor: '#2a2a2a',
+                  color: '#cccccc',
+                  border: '1px solid #404040',
                   borderRadius: 4,
                   cursor: 'pointer',
                 }}
@@ -547,15 +732,15 @@ function PreviewPanel({
                 Insert Title
               </button>
             </div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#111827' }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#cccccc' }}>
               {title}
             </p>
           </div>
         )}
 
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 18 }}>
           {title && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#888888', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
               📄 Description
             </span>
           )}
@@ -563,10 +748,10 @@ function PreviewPanel({
             style={{
               margin: 0,
               fontSize: 13,
-              color: '#374151',
+              color: '#cccccc',
               whiteSpace: 'pre-wrap',
               fontFamily: 'inherit',
-              lineHeight: 1.6,
+              lineHeight: 1.7,
             }}
           >
             {description}
@@ -574,28 +759,29 @@ function PreviewPanel({
         </div>
       </div>
 
+      {/* Footer */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '12px 16px',
-          borderTop: '1px solid #e5e7eb',
-          backgroundColor: '#f9fafb',
-          borderRadius: '0 0 8px 8px',
+          padding: '14px 18px',
+          borderTop: '1px solid #333333',
+          backgroundColor: '#222222',
+          borderRadius: '0 0 12px 12px',
         }}
       >
         <button
           onClick={() => onInsert(true)}
           style={{
             flex: 1,
-            padding: '8px 12px',
+            padding: '10px 14px',
             fontSize: 13,
-            fontWeight: 500,
-            backgroundColor: '#2563eb',
-            color: '#fff',
+            fontWeight: 600,
+            backgroundColor: '#4ade80',
+            color: '#1a1a1a',
             border: 'none',
-            borderRadius: 6,
+            borderRadius: 8,
             cursor: 'pointer',
           }}
         >
@@ -606,13 +792,13 @@ function PreviewPanel({
             onClick={() => onInsert(false)}
             title="Insert description only"
             style={{
-              padding: '8px 12px',
+              padding: '10px 14px',
               fontSize: 13,
               fontWeight: 500,
-              backgroundColor: '#f3f4f6',
-              color: '#374151',
-              border: 'none',
-              borderRadius: 6,
+              backgroundColor: '#2a2a2a',
+              color: '#cccccc',
+              border: '1px solid #404040',
+              borderRadius: 8,
               cursor: 'pointer',
             }}
           >
@@ -623,13 +809,13 @@ function PreviewPanel({
           onClick={onCopy}
           title="Copy to clipboard"
           style={{
-            padding: '8px 12px',
+            padding: '10px 12px',
             fontSize: 13,
             fontWeight: 500,
-            backgroundColor: '#f3f4f6',
-            color: '#374151',
-            border: 'none',
-            borderRadius: 6,
+            backgroundColor: '#2a2a2a',
+            color: '#cccccc',
+            border: '1px solid #404040',
+            borderRadius: 8,
             cursor: 'pointer',
           }}
         >
@@ -639,13 +825,13 @@ function PreviewPanel({
           onClick={onRegenerate}
           title="Regenerate"
           style={{
-            padding: '8px 12px',
+            padding: '10px 12px',
             fontSize: 13,
             fontWeight: 500,
-            backgroundColor: '#f3f4f6',
-            color: '#374151',
-            border: 'none',
-            borderRadius: 6,
+            backgroundColor: '#2a2a2a',
+            color: '#cccccc',
+            border: '1px solid #404040',
+            borderRadius: 8,
             cursor: 'pointer',
           }}
         >
@@ -656,98 +842,26 @@ function PreviewPanel({
   );
 }
 
-function SparklesIcon() {
-  return (
-    <svg style={{ width: 14, height: 14 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg style={{ width: 20, height: 20, color: '#059669' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-    </svg>
-  );
-}
-
-function ErrorIcon() {
-  return (
-    <svg style={{ width: 20, height: 20 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg style={{ width: 20, height: 20 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M6 18L18 6M6 6l12 12"
-      />
-    </svg>
-  );
-}
-
-function CopyIcon() {
-  return (
-    <svg style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-      />
-    </svg>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <svg style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-      />
-    </svg>
-  );
-}
-
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   return (
     <div
       style={{
         position: 'fixed',
         bottom: 80,
-        right: 16,
-        zIndex: 10000,
+        right: 20,
+        zIndex: 10001,
         display: 'flex',
         alignItems: 'center',
         gap: 12,
         padding: '12px 16px',
-        backgroundColor: '#1f2937',
-        color: '#fff',
-        borderRadius: 8,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        backgroundColor: '#1a1a1a',
+        color: '#cccccc',
+        borderRadius: 10,
+        border: '1px solid #333333',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         fontSize: 13,
         maxWidth: 360,
-        animation: 'slideIn 0.2s ease-out',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
       <InfoIcon />
@@ -758,7 +872,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            color: '#60a5fa',
+            color: '#f9a825',
             fontSize: 12,
             textDecoration: 'underline',
             marginTop: 4,
@@ -775,7 +889,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
           backgroundColor: 'transparent',
           border: 'none',
           cursor: 'pointer',
-          color: '#9ca3af',
+          color: '#666666',
           borderRadius: 4,
         }}
       >
@@ -785,15 +899,51 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   );
 }
 
+// Icons
+function CheckIcon() {
+  return (
+    <svg style={{ width: 20, height: 20 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+function ErrorIcon() {
+  return (
+    <svg style={{ width: 20, height: 20 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg style={{ width: 18, height: 18 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
+function CopyIcon() {
+  return (
+    <svg style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg style={{ width: 16, height: 16 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    </svg>
+  );
+}
+
 function InfoIcon() {
   return (
-    <svg style={{ width: 20, height: 20, color: '#60a5fa', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-      />
+    <svg style={{ width: 20, height: 20, color: '#f9a825', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
 }
