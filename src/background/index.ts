@@ -16,7 +16,75 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((error) => sendResponse({ error: error.message }));
     return true;
   }
+  
+  if (message.type === 'INJECT_AND_GENERATE' && typeof message.tabId === 'number') {
+    handleInjectAndGenerate(message.tabId)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
 });
+
+// Check if content script is loaded by sending a PING
+async function isContentScriptLoaded(tabId: number): Promise<boolean> {
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Inject content script if not loaded, then trigger generate
+async function handleInjectAndGenerate(tabId: number): Promise<{ success: boolean; error?: string }> {
+  const isLoaded = await isContentScriptLoaded(tabId);
+  
+  if (!isLoaded) {
+    console.log('[Laplace] Content script not loaded, injecting...');
+    
+    try {
+      // Get the compiled content script path from the manifest
+      const manifest = chrome.runtime.getManifest();
+      const contentScriptPath = manifest.content_scripts?.[0]?.js?.[0];
+      
+      if (!contentScriptPath) {
+        throw new Error('Content script path not found in manifest');
+      }
+      
+      // Inject the content script
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: [contentScriptPath]
+      });
+      
+      // Also inject the CSS if present
+      const cssPath = manifest.content_scripts?.[0]?.css?.[0];
+      if (cssPath) {
+        await chrome.scripting.insertCSS({
+          target: { tabId },
+          files: [cssPath]
+        });
+      }
+      
+      // Wait a bit for React to mount
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('[Laplace] Content script injected');
+    } catch (error) {
+      console.error('[Laplace] Failed to inject:', error);
+      return { success: false, error: 'Failed to inject content script' };
+    }
+  }
+  
+  // Now trigger generate
+  try {
+    await chrome.tabs.sendMessage(tabId, { type: 'TRIGGER_GENERATE' });
+    return { success: true };
+  } catch (error) {
+    console.error('[Laplace] Failed to trigger generate:', error);
+    return { success: false, error: 'Failed to trigger generation' };
+  }
+}
 
 async function handleGeneratePR(
   message: GenerateMessage

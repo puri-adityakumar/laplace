@@ -28,24 +28,40 @@ export function Popup() {
     setErrorMsg('');
     
     try {
-      // Send message to content script to trigger generation
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       
       if (!tab?.id || !tab.url?.includes('github.com')) {
-        setErrorMsg('Please open a GitHub PR or compare page');
+        setErrorMsg('Please open a GitHub page first');
         setGenerateStatus('error');
         return;
       }
       
-      // Inject and trigger generation via content script
-      await chrome.tabs.sendMessage(tab.id, { type: 'TRIGGER_GENERATE' });
-      setGenerateStatus('success');
+      // Check if it's a PR-related page
+      const url = new URL(tab.url);
+      const isPRPage = /\/compare\/|\/pull\/\d+/.test(url.pathname);
       
-      // Close popup after short delay
-      setTimeout(() => window.close(), 500);
+      if (!isPRPage) {
+        setErrorMsg('Please open a PR or compare page');
+        setGenerateStatus('error');
+        return;
+      }
+      
+      // Send to background to handle injection if needed
+      const response = await chrome.runtime.sendMessage({
+        type: 'INJECT_AND_GENERATE',
+        tabId: tab.id
+      });
+      
+      if (response?.success) {
+        setGenerateStatus('success');
+        setTimeout(() => window.close(), 500);
+      } else {
+        setErrorMsg(response?.error || 'Failed to generate');
+        setGenerateStatus('error');
+      }
     } catch (err) {
       console.error('Generate failed:', err);
-      setErrorMsg('Could not trigger generation. Make sure you\'re on a PR page.');
+      setErrorMsg('Could not trigger generation');
       setGenerateStatus('error');
     }
   };

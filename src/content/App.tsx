@@ -232,11 +232,18 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeydown);
   }, [handleGenerate]);
 
-  // Listen for trigger from popup
+  // Listen for messages from popup/background
   useEffect(() => {
     const handleMessage = (message: { type: string }, _sender: chrome.runtime.MessageSender, sendResponse: (response: unknown) => void) => {
+      if (message.type === 'PING') {
+        // Used to detect if content script is loaded
+        console.log('[Laplace] Received PING');
+        sendResponse({ success: true });
+        return;
+      }
+      
       if (message.type === 'TRIGGER_GENERATE') {
-        console.log('[Laplace] Received TRIGGER_GENERATE from popup');
+        console.log('[Laplace] Received TRIGGER_GENERATE');
         handleGenerate();
         sendResponse({ success: true });
       }

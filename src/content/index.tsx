@@ -15,6 +15,8 @@ function init() {
 
   const root = createRoot(container);
   root.render(<App />);
+  
+  console.log('[Laplace] Content script mounted');
 }
 
 // Initialize when DOM is ready
