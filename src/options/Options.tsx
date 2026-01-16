@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, Input, RadioGroup, ModelSelector } from '../ui';
+import { Button, Input, RadioGroup, ModelSelector, LaplaceLogo } from '../ui';
 import { getSettings, saveSettings } from '../lib/storage';
 import type { Settings, DescriptionStyle } from '../lib/types';
 
@@ -56,25 +56,28 @@ export function Options() {
 
   if (!settings) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500">Loading...</p>
+      <div className="min-h-screen bg-background bg-grid-subtle flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-background bg-grid-subtle p-8">
       <div className="max-w-xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Laplace Settings</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Configure your AI-powered PR description generator
-          </p>
+        <div className="mb-8 flex items-center gap-4">
+          <LaplaceLogo size={40} />
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Laplace Settings</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Configure your AI-powered PR description generator
+            </p>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 space-y-6">
+        <div className="bg-card rounded-lg shadow-sm border border-border p-6 space-y-6">
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900 border-b pb-2">
+            <h2 className="text-lg font-semibold text-foreground border-b border-border pb-2">
               API Configuration
             </h2>
 
@@ -90,13 +93,13 @@ export function Options() {
                 error && !settings.openRouterApiKey.trim() ? error : undefined
               }
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Get your API key from{' '}
               <a
                 href="https://openrouter.ai/keys"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-primary hover:underline"
               >
                 openrouter.ai/keys
               </a>
@@ -111,13 +114,13 @@ export function Options() {
                 setSettings({ ...settings, githubPat: e.target.value })
               }
             />
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Required for private repositories. Create one at{' '}
               <a
                 href="https://github.com/settings/tokens"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
+                className="text-primary hover:underline"
               >
                 GitHub Settings → Tokens
               </a>
@@ -125,7 +128,7 @@ export function Options() {
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900 border-b pb-2">
+            <h2 className="text-lg font-semibold text-foreground border-b border-border pb-2">
               Generation Settings
             </h2>
 
@@ -151,10 +154,10 @@ export function Options() {
 
             <div className="flex items-center justify-between py-2">
               <div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   Auto-insert (skip preview)
                 </label>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Insert generated content directly without showing preview
                 </p>
               </div>
@@ -165,12 +168,12 @@ export function Options() {
                 onClick={() =>
                   setSettings({ ...settings, autoInject: !settings.autoInject })
                 }
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  settings.autoInject ? 'bg-blue-600' : 'bg-gray-200'
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
+                  settings.autoInject ? 'bg-primary' : 'bg-muted'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-foreground shadow ring-0 transition duration-200 ease-in-out ${
                     settings.autoInject ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
@@ -179,10 +182,10 @@ export function Options() {
 
             <div className="flex items-center justify-between py-2">
               <div>
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   Generate PR title
                 </label>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Also generate a suggested title for the PR
                 </p>
               </div>
@@ -193,12 +196,12 @@ export function Options() {
                 onClick={() =>
                   setSettings({ ...settings, generateTitle: !settings.generateTitle })
                 }
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  settings.generateTitle ? 'bg-blue-600' : 'bg-gray-200'
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
+                  settings.generateTitle ? 'bg-primary' : 'bg-muted'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-foreground shadow ring-0 transition duration-200 ease-in-out ${
                     settings.generateTitle ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
@@ -207,10 +210,10 @@ export function Options() {
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-900 border-b pb-2">
+            <h2 className="text-lg font-semibold text-foreground border-b border-border pb-2">
               Custom Prompt (Optional)
             </h2>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Override the default system prompt. Leave empty to use the built-in prompt.
             </p>
             <textarea
@@ -220,22 +223,22 @@ export function Options() {
               }
               placeholder="You are a senior engineer writing PR descriptions..."
               rows={5}
-              className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+              className="block w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring font-mono"
             />
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-muted-foreground">
               The PR context (diff, commits, etc.) will be automatically appended.
             </p>
           </div>
 
-          <div className="flex items-center gap-4 pt-4 border-t">
+          <div className="flex items-center gap-4 pt-4 border-t border-border">
             <Button onClick={handleSave} loading={saving}>
               Save Settings
             </Button>
             {saved && (
-              <span className="text-sm text-green-600">Settings saved!</span>
+              <span className="text-sm text-success">Settings saved!</span>
             )}
             {error && !saved && (
-              <span className="text-sm text-red-600">{error}</span>
+              <span className="text-sm text-destructive">{error}</span>
             )}
           </div>
         </div>

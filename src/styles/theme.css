@@ -1,0 +1,94 @@
+/* Laplace Design System - Dark Mode Theme */
+/* Matches landing-page design: green primary, orange accent */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Geist Mono Variable Font */
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/assets/font/GeistMono[wght].woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/assets/font/GeistMono-Italic[wght].woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    /* Color tokens (OKLCH components for Tailwind alpha support) */
+    --background: 0.13 0 0;
+    --foreground: 0.8 0 0;
+    
+    --card: 0.16 0 0;
+    --card-foreground: 0.8 0 0;
+    
+    --popover: 0.16 0 0;
+    --popover-foreground: 0.8 0 0;
+    
+    --primary: 0.68 0.15 145;
+    --primary-foreground: 0.13 0 0;
+    
+    --secondary: 0.2 0 0;
+    --secondary-foreground: 0.8 0 0;
+    
+    --muted: 0.18 0 0;
+    --muted-foreground: 0.55 0 0;
+    
+    --accent: 0.72 0.14 55;
+    --accent-foreground: 0.13 0 0;
+    
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    
+    --border: 0.25 0 0;
+    --input: 0.25 0 0;
+    --ring: 0.72 0.14 55;
+    
+    --success: 0.68 0.15 145;
+    --success-foreground: 0.13 0 0;
+    
+    --warning: 0.828 0.189 84.429;
+    --warning-foreground: 0.13 0 0;
+    
+    /* Spacing & sizing */
+    --radius: 0.375rem;
+    
+    /* Color scheme */
+    color-scheme: dark;
+  }
+  
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Geist Mono', ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+  }
+}
+
+/* Grid pattern utilities */
+@layer utilities {
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(to right, oklch(0.25 0 0 / 0.4) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.25 0 0 / 0.4) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  
+  .bg-grid-subtle {
+    background-image: 
+      linear-gradient(to right, oklch(0.2 0 0 / 0.3) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.2 0 0 / 0.3) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+}

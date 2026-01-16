@@ -415,25 +415,28 @@ function HintToast({ onDismiss }: { onDismiss: () => void }) {
         alignItems: 'center',
         gap: 12,
         padding: '12px 16px',
-        backgroundColor: '#1e293b',
-        color: '#fff',
+        backgroundColor: '#1a1a1a',
+        color: '#cccccc',
         borderRadius: 10,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+        border: '1px solid #333333',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         fontSize: 13,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
         animation: 'slideUp 0.3s ease-out',
       }}
     >
       <span style={{ fontSize: 18 }}>✨</span>
       <div>
-        <p style={{ margin: 0, fontWeight: 500 }}>Laplace detected a PR</p>
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#94a3b8' }}>
+        <p style={{ margin: 0, fontWeight: 500, color: '#4ade80' }}>Laplace detected a PR</p>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: '#888888' }}>
           Press <kbd style={{
             padding: '2px 6px',
-            backgroundColor: '#334155',
+            backgroundColor: '#2a2a2a',
+            border: '1px solid #404040',
             borderRadius: 4,
             fontSize: 11,
             fontWeight: 600,
+            color: '#cccccc',
           }}>Alt+G</kbd> to generate description
         </p>
       </div>
@@ -444,7 +447,7 @@ function HintToast({ onDismiss }: { onDismiss: () => void }) {
           backgroundColor: 'transparent',
           border: 'none',
           cursor: 'pointer',
-          color: '#64748b',
+          color: '#666666',
           borderRadius: 4,
           marginLeft: 8,
         }}
@@ -473,16 +476,17 @@ function LoadingState() {
         alignItems: 'center',
         gap: 12,
         padding: '14px 20px',
-        backgroundColor: '#1e293b',
-        color: '#fff',
+        backgroundColor: '#1a1a1a',
+        color: '#cccccc',
         borderRadius: 10,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+        border: '1px solid #333333',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         fontSize: 14,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
       <LoadingSpinner />
-      <span>Generating PR description...</span>
+      <span style={{ color: '#4ade80' }}>Generating PR description...</span>
     </div>
   );
 }
@@ -529,12 +533,13 @@ function SuccessState() {
         alignItems: 'center',
         gap: 12,
         padding: '14px 20px',
-        backgroundColor: '#059669',
-        color: '#fff',
+        backgroundColor: '#1a1a1a',
+        color: '#4ade80',
         borderRadius: 10,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+        border: '1px solid #4ade80',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         fontSize: 14,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
       <CheckIcon />
@@ -563,11 +568,11 @@ function ErrorState({
         zIndex: 10000,
         maxWidth: 360,
         padding: 16,
-        backgroundColor: '#fff',
-        border: '1px solid #fecaca',
+        backgroundColor: '#1a1a1a',
+        border: '1px solid #ef4444',
         borderRadius: 10,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -575,8 +580,8 @@ function ErrorState({
           <ErrorIcon />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#991b1b' }}>Error</p>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#dc2626' }}>{message}</p>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#ef4444' }}>Error</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#fca5a5' }}>{message}</p>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             {isConfigError ? (
               <button
@@ -585,8 +590,8 @@ function ErrorState({
                   padding: '8px 14px',
                   fontSize: 13,
                   fontWeight: 500,
-                  backgroundColor: '#2563eb',
-                  color: '#fff',
+                  backgroundColor: '#4ade80',
+                  color: '#1a1a1a',
                   border: 'none',
                   borderRadius: 6,
                   cursor: 'pointer',
@@ -601,9 +606,9 @@ function ErrorState({
                   padding: '8px 14px',
                   fontSize: 13,
                   fontWeight: 500,
-                  backgroundColor: '#fee2e2',
-                  color: '#991b1b',
-                  border: 'none',
+                  backgroundColor: '#2a2a2a',
+                  color: '#fca5a5',
+                  border: '1px solid #404040',
                   borderRadius: 6,
                   cursor: 'pointer',
                 }}
@@ -617,9 +622,9 @@ function ErrorState({
                 padding: '8px 14px',
                 fontSize: 13,
                 fontWeight: 500,
-                backgroundColor: '#f3f4f6',
-                color: '#374151',
-                border: 'none',
+                backgroundColor: '#2a2a2a',
+                color: '#cccccc',
+                border: '1px solid #404040',
                 borderRadius: 6,
                 cursor: 'pointer',
               }}
@@ -663,11 +668,11 @@ function PreviewPanel({
         maxHeight: '80vh',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#fff',
-        border: '1px solid #e5e7eb',
+        backgroundColor: '#1a1a1a',
+        border: '1px solid #333333',
         borderRadius: 12,
-        boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
       {/* Header */}
@@ -677,16 +682,16 @@ function PreviewPanel({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '14px 18px',
-          borderBottom: '1px solid #e5e7eb',
-          backgroundColor: '#f8fafc',
+          borderBottom: '1px solid #333333',
+          backgroundColor: '#222222',
           borderRadius: '12px 12px 0 0',
         }}
       >
         <div>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#0f172a' }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#4ade80' }}>
             Preview
           </h3>
-          <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{wordCount} words</p>
+          <p style={{ margin: 0, fontSize: 11, color: '#888888' }}>{wordCount} words</p>
         </div>
         <button
           onClick={onClose}
@@ -695,7 +700,7 @@ function PreviewPanel({
             backgroundColor: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            color: '#94a3b8',
+            color: '#666666',
             borderRadius: 6,
           }}
         >
@@ -706,9 +711,9 @@ function PreviewPanel({
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto', minHeight: 120, maxHeight: 450 }}>
         {title && (
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #333333' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#888888', textTransform: 'uppercase' }}>
                 📝 Title
               </span>
               <button
@@ -717,9 +722,9 @@ function PreviewPanel({
                   padding: '4px 10px',
                   fontSize: 11,
                   fontWeight: 500,
-                  backgroundColor: '#f1f5f9',
-                  color: '#475569',
-                  border: 'none',
+                  backgroundColor: '#2a2a2a',
+                  color: '#cccccc',
+                  border: '1px solid #404040',
                   borderRadius: 4,
                   cursor: 'pointer',
                 }}
@@ -727,7 +732,7 @@ function PreviewPanel({
                 Insert Title
               </button>
             </div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#0f172a' }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: '#cccccc' }}>
               {title}
             </p>
           </div>
@@ -735,7 +740,7 @@ function PreviewPanel({
 
         <div style={{ padding: 18 }}>
           {title && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#888888', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
               📄 Description
             </span>
           )}
@@ -743,7 +748,7 @@ function PreviewPanel({
             style={{
               margin: 0,
               fontSize: 13,
-              color: '#334155',
+              color: '#cccccc',
               whiteSpace: 'pre-wrap',
               fontFamily: 'inherit',
               lineHeight: 1.7,
@@ -761,8 +766,8 @@ function PreviewPanel({
           alignItems: 'center',
           gap: 8,
           padding: '14px 18px',
-          borderTop: '1px solid #e5e7eb',
-          backgroundColor: '#f8fafc',
+          borderTop: '1px solid #333333',
+          backgroundColor: '#222222',
           borderRadius: '0 0 12px 12px',
         }}
       >
@@ -773,8 +778,8 @@ function PreviewPanel({
             padding: '10px 14px',
             fontSize: 13,
             fontWeight: 600,
-            backgroundColor: '#2563eb',
-            color: '#fff',
+            backgroundColor: '#4ade80',
+            color: '#1a1a1a',
             border: 'none',
             borderRadius: 8,
             cursor: 'pointer',
@@ -790,9 +795,9 @@ function PreviewPanel({
               padding: '10px 14px',
               fontSize: 13,
               fontWeight: 500,
-              backgroundColor: '#f1f5f9',
-              color: '#475569',
-              border: 'none',
+              backgroundColor: '#2a2a2a',
+              color: '#cccccc',
+              border: '1px solid #404040',
               borderRadius: 8,
               cursor: 'pointer',
             }}
@@ -807,9 +812,9 @@ function PreviewPanel({
             padding: '10px 12px',
             fontSize: 13,
             fontWeight: 500,
-            backgroundColor: '#f1f5f9',
-            color: '#475569',
-            border: 'none',
+            backgroundColor: '#2a2a2a',
+            color: '#cccccc',
+            border: '1px solid #404040',
             borderRadius: 8,
             cursor: 'pointer',
           }}
@@ -823,9 +828,9 @@ function PreviewPanel({
             padding: '10px 12px',
             fontSize: 13,
             fontWeight: 500,
-            backgroundColor: '#f1f5f9',
-            color: '#475569',
-            border: 'none',
+            backgroundColor: '#2a2a2a',
+            color: '#cccccc',
+            border: '1px solid #404040',
             borderRadius: 8,
             cursor: 'pointer',
           }}
@@ -849,13 +854,14 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
         alignItems: 'center',
         gap: 12,
         padding: '12px 16px',
-        backgroundColor: '#1e293b',
-        color: '#fff',
+        backgroundColor: '#1a1a1a',
+        color: '#cccccc',
         borderRadius: 10,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+        border: '1px solid #333333',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
         fontSize: 13,
         maxWidth: 360,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontFamily: '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace',
       }}
     >
       <InfoIcon />
@@ -866,7 +872,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
           target="_blank"
           rel="noopener noreferrer"
           style={{
-            color: '#60a5fa',
+            color: '#f9a825',
             fontSize: 12,
             textDecoration: 'underline',
             marginTop: 4,
@@ -883,7 +889,7 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
           backgroundColor: 'transparent',
           border: 'none',
           cursor: 'pointer',
-          color: '#64748b',
+          color: '#666666',
           borderRadius: 4,
         }}
       >
@@ -936,7 +942,7 @@ function RefreshIcon() {
 
 function InfoIcon() {
   return (
-    <svg style={{ width: 20, height: 20, color: '#60a5fa', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg style={{ width: 20, height: 20, color: '#f9a825', flexShrink: 0 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
