@@ -25,7 +25,7 @@ Thumbs.db
 npm-debug.log*
 
 # Local docs (not committed)
-PRD.md
+# PRD.md
 
 # Package manager
 pnpm-debug.log*
