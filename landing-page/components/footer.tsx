@@ -27,7 +27,8 @@ export function Footer() {
               rel="noopener noreferrer"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Github className="h-4 w-4" />
+              <Github className="h-4 w-4" aria-hidden="true" />
+              <span className="sr-only">View on GitHub</span>
             </Link>
           </div>
           <p className="text-xs text-muted-foreground">MIT License. Built by developers, for developers.</p>

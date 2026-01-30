@@ -5,7 +5,7 @@ interface LaplaceLogo {
 
 export function LaplaceLogo({ size = 28, className = "" }: LaplaceLogo) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <svg width={size} height={size} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" className={className} aria-hidden="true">
       <defs>
         <clipPath id="circle-clip">
           <circle cx="50" cy="50" r="48" />

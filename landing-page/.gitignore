@@ -25,3 +25,37 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agentic coding assistants
+.agent
+.agents
+.claude
+.cline
+.codebuddy
+.codex
+.commandcode
+.continue
+.crush
+.cursor
+.factory
+.gemini
+.goose
+.junie
+.kilocode
+.kiro
+.kode
+.mcpjam
+.mux
+.neovate
+.openclaude
+.opencode
+.openhands
+.pi
+.pochi
+.qoder
+.qwen
+.roo
+.trae
+.windsurf
+.zencoder
+skills/

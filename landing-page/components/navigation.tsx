@@ -13,16 +13,16 @@ export function Navigation() {
             <span className="text-sm font-medium text-foreground">Laplace</span>
           </Link>
           <nav className="hidden items-center gap-6 md:flex">
-            <Link href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="#features" className="nav-link text-sm text-muted-foreground transition-colors hover:text-foreground">
               Features
             </Link>
             <Link
               href="#how-it-works"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="nav-link text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               How It Works
             </Link>
-            <Link href="#install" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="#install" className="nav-link text-sm text-muted-foreground transition-colors hover:text-foreground">
               Install
             </Link>
           </nav>
@@ -34,7 +34,8 @@ export function Navigation() {
             rel="noopener noreferrer"
             className="text-muted-foreground transition-colors hover:text-foreground"
           >
-            <Github className="h-5 w-5" />
+            <Github className="h-5 w-5" aria-hidden="true" />
+            <span className="sr-only">View on GitHub</span>
           </Link>
           <Button asChild size="sm" className="bg-foreground text-background hover:bg-foreground/90">
             <Link href="#install">Get Started</Link>
