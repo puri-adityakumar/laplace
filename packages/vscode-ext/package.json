@@ -1,0 +1,80 @@
+{
+  "name": "@laplace/vscode-ext",
+  "displayName": "Laplace - AI PR Description Generator",
+  "description": "Auto-generate GitHub PR descriptions using AI",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "laplace",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "laplace.generateDescription",
+        "title": "Laplace: Generate PR Description"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "laplace.generateDescription",
+        "key": "alt+g",
+        "when": "editorTextFocus"
+      }
+    ],
+    "configuration": {
+      "title": "Laplace",
+      "properties": {
+        "laplace.openRouterApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenRouter API key"
+        },
+        "laplace.githubPat": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub Personal Access Token (optional, for private repos)"
+        },
+        "laplace.model": {
+          "type": "string",
+          "default": "openai/gpt-oss-120b:free",
+          "description": "AI model ID to use"
+        },
+        "laplace.style": {
+          "type": "string",
+          "enum": ["short", "medium", "detailed"],
+          "default": "medium",
+          "description": "Description detail level"
+        },
+        "laplace.generateTitle": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also generate a PR title"
+        },
+        "laplace.customPrompt": {
+          "type": "string",
+          "default": "",
+          "description": "Custom system prompt override"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node",
+    "dev": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --watch --sourcemap",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@laplace/shared": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.7.2"
+  }
+}

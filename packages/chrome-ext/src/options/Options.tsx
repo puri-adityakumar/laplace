@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Input, RadioGroup, ModelSelector, LaplaceLogo } from '../ui';
 import { getSettings, saveSettings } from '../lib/storage';
-import type { Settings, DescriptionStyle } from '../lib/types';
+import type { Settings, DescriptionStyle } from '@laplace/shared';
 
 const STYLE_OPTIONS = [
   {

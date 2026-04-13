@@ -32,3 +32,10 @@ npm-debug.log*
 pnpm-debug.log*
 .pnpm-store/
 sample-github.html
+
+# Workspace packages
+packages/*/dist/
+packages/*/node_modules/
+
+
+.opencode/

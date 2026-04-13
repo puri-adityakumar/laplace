@@ -1,12 +1,12 @@
 # Laplace - Product Requirements Document
 
-> Auto-generate GitHub PR descriptions using AI
+> Auto-generate GitHub PR descriptions using AI (Chrome/Edge + VS Code)
 
 ---
 
 ## Overview
 
-A Chrome/Edge browser extension that automatically generates pull request descriptions using AI. Users bring their own OpenRouter API key (BYOK), and the extension uses a hybrid approach to fetch PR context (DOM + GitHub API).
+Chrome/Edge browser extension and VS Code extension that automatically generate pull request descriptions using AI. Users bring their own OpenRouter API key (BYOK). Both extensions share a common core library (`@laplace/shared`).
 
 ---
 
@@ -23,12 +23,22 @@ A Chrome/Edge browser extension that automatically generates pull request descri
 
 | Layer | Technology |
 |-------|------------|
-| Platform | Chrome/Edge Extension (Manifest v3) |
+| Monorepo | npm workspaces |
 | Language | TypeScript |
-| UI | React 18 + Tailwind CSS |
-| Bundler | Vite + `@crxjs/vite-plugin` |
+| Chrome Extension | React 18 + Tailwind CSS + Vite + `@crxjs/vite-plugin` |
+| VS Code Extension | esbuild + VS Code Extension API |
 | AI Provider | OpenRouter (direct REST API) |
-| Storage | `chrome.storage.local` |
+| Chrome Storage | `chrome.storage.local` |
+| VS Code Storage | `vscode.workspace.getConfiguration` |
+
+### Package Structure
+
+| Package | Name | Purpose |
+|---------|------|---------|
+| `packages/shared` | `@laplace/shared` | Types, API clients, prompts (shared logic) |
+| `packages/chrome-ext` | `@laplace/chrome-ext` | Chrome/Edge Manifest v3 extension |
+| `packages/vscode-ext` | `@laplace/vscode-ext` | VS Code extension |
+| `landing-page` | — | Next.js marketing site |
 
 ---
 
@@ -201,6 +211,7 @@ laplace/
 
 - [ ] New design system + logo
 - [ ] Deploy landing page
+- [ ] VS Code extension (Phase 13)
 
 ### Future (v3+)
 
@@ -209,6 +220,8 @@ laplace/
 - [ ] PR template support
 - [ ] Firefox support
 - [ ] PR comment generation
+- [ ] VS Code extension: Webview settings UI
+- [ ] VS Code extension: Status bar integration
 
 ---
 
@@ -420,6 +433,22 @@ pnpm lint
 
 ---
 
+### Phase 13: Monorepo & VS Code Extension
+> Restructure into monorepo + scaffold VS Code extension
+
+| # | Task | Status |
+|---|------|--------|
+| 13.1 | Restructure into npm workspaces monorepo (`packages/shared`, `packages/chrome-ext`, `packages/vscode-ext`) | ✅ DONE |
+| 13.2 | Extract shared logic into `@laplace/shared` (types, API clients, prompts) | ✅ DONE |
+| 13.3 | Migrate Chrome extension to `packages/chrome-ext/` | ✅ DONE |
+| 13.4 | Scaffold VS Code extension (`packages/vscode-ext/`) with esbuild | ✅ DONE |
+| 13.5 | VS Code extension: Command handler + context building via Git API | 🔄 Scaffolded |
+| 13.6 | VS Code extension: Settings via VS Code configuration | ✅ DONE |
+| 13.7 | VS Code extension: Publish to VS Code Marketplace | ⬜ TODO |
+| 13.8 | Update AGENTS.md and PRD.md for monorepo structure | ✅ DONE |
+
+---
+
 ## Checklist Summary
 
 | Phase | Description | Status |
@@ -431,20 +460,26 @@ pnpm lint
 | 10 | Toast + Keyboard UX | ✅ Complete (5 tasks) |
 | 11 | Design System & Branding | ⬜ Planned (3 tasks) |
 | 12 | Landing Page & Distribution | 🔄 In Progress (2/4 tasks) |
+| 13 | Monorepo & VS Code Extension | 🔄 In Progress (6/8 tasks) |
 
-**Total: 12 phases, 38 tasks — 33 complete, 5 remaining**
+**Total: 13 phases, 46 tasks — 39 complete, 7 remaining**
 
 ---
 
 ## Technical Notes
 
 ### Storage Persistence
+
+**Chrome Extension:**
 All settings are stored in `chrome.storage.local` which persists across:
 - Browser restarts
 - System shutdowns
 - Extension updates
 
 Settings are **not** synced across devices (intentional for security - API keys stay local).
+
+**VS Code Extension:**
+All settings are stored in VS Code's `settings.json` via `vscode.workspace.getConfiguration('laplace')`.
 
 ### Distribution Options
 

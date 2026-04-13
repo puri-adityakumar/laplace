@@ -12,11 +12,12 @@ interface CachedModels {
   timestamp: number;
 }
 
-const CACHE_KEY = 'laplace-openrouter-models';
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_DURATION = 24 * 60 * 60 * 1000;
+
+let modelCache: CachedModels | null = null;
 
 export async function fetchOpenRouterModels(): Promise<OpenRouterModel[]> {
-  const cached = await getCachedModels();
+  const cached = getCachedModels();
   if (cached) {
     return cached;
   }
@@ -34,7 +35,7 @@ export async function fetchOpenRouterModels(): Promise<OpenRouterModel[]> {
       pricing: m.pricing as { prompt: string; completion: string },
     }));
 
-    await cacheModels(models);
+    modelCache = { models, timestamp: Date.now() };
     return models;
   } catch (error) {
     console.error('[Laplace] Failed to fetch OpenRouter models:', error);
@@ -42,27 +43,12 @@ export async function fetchOpenRouterModels(): Promise<OpenRouterModel[]> {
   }
 }
 
-async function getCachedModels(): Promise<OpenRouterModel[] | null> {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(CACHE_KEY, (result) => {
-      const cached = result[CACHE_KEY] as CachedModels | undefined;
-      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        resolve(cached.models);
-      } else {
-        resolve(null);
-      }
-    });
-  });
-}
-
-async function cacheModels(models: OpenRouterModel[]): Promise<void> {
-  return new Promise((resolve) => {
-    const cached: CachedModels = {
-      models,
-      timestamp: Date.now(),
-    };
-    chrome.storage.local.set({ [CACHE_KEY]: cached }, resolve);
-  });
+function getCachedModels(): OpenRouterModel[] | null {
+  if (modelCache && Date.now() - modelCache.timestamp < CACHE_DURATION) {
+    return modelCache.models;
+  }
+  modelCache = null;
+  return null;
 }
 
 export function formatPricing(model: OpenRouterModel): string {

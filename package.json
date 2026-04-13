@@ -1,31 +1,22 @@
 {
   "name": "laplace",
   "version": "0.1.0",
-  "description": "Auto-generate GitHub PR descriptions using AI",
+  "private": true,
+  "description": "AI-powered PR description generator - Chrome extension & VS Code extension",
   "type": "module",
+  "workspaces": [
+    "packages/*",
+    "landing-page"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "@crxjs/vite-plugin": "^2.0.0-beta.28",
-    "@types/chrome": "^0.0.287",
-    "@types/react": "^18.3.18",
-    "@types/react-dom": "^18.3.5",
-    "@typescript-eslint/eslint-plugin": "^8.19.1",
-    "@typescript-eslint/parser": "^8.19.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^9.17.0",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2",
-    "vite": "^6.0.7"
-  },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "build": "npm run build -w @laplace/shared -w @laplace/chrome-ext",
+    "build:shared": "npm run build -w @laplace/shared",
+    "build:chrome": "npm run build -w @laplace/chrome-ext",
+    "build:vscode": "npm run build -w @laplace/vscode-ext",
+    "dev:chrome": "npm run dev -w @laplace/chrome-ext",
+    "dev:vscode": "npm run dev -w @laplace/vscode-ext",
+    "dev:landing": "npm run dev -w landing-page",
+    "lint": "npm run lint -w @laplace/chrome-ext",
+    "typecheck": "npm run typecheck -w @laplace/shared && npm run typecheck -w @laplace/chrome-ext"
   }
 }

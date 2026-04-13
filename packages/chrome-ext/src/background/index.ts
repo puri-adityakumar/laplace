@@ -1,8 +1,6 @@
 import { getSettings } from '../lib/storage';
-import { fetchPRContext, fetchCompareDiff } from '../lib/github-api';
-import { buildPrompt, parseGeneratedResponse } from '../lib/prompt';
-import { generateCompletion } from '../lib/openrouter';
-import type { PRContext, GenerateResponse, ScrapedContext } from '../lib/types';
+import { fetchPRContext, fetchCompareDiff, buildPrompt, parseGeneratedResponse, generateCompletion } from '@laplace/shared';
+import type { PRContext, GenerateResponse, ScrapedContext } from '@laplace/shared';
 
 interface GenerateMessage {
   type: 'GENERATE_PR_DESCRIPTION';

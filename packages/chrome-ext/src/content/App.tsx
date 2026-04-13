@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { scrapePRPage, getPRInfoFromURL, isNewPRPage, scrapeFallbackContext } from '../lib/dom-scraper';
 import { getSettings } from '../lib/storage';
-import type { ScrapedContext, GenerateResponse } from '../lib/types';
+import type { ScrapedContext, GenerateResponse } from '@laplace/shared';
 
 type Status = 'idle' | 'loading' | 'preview' | 'error' | 'success';
 

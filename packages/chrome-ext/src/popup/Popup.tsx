@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getSettings } from '../lib/storage';
-import type { Settings } from '../lib/types';
-import { MODELS } from '../lib/constants';
+import type { Settings } from '@laplace/shared';
+import { MODELS } from '@laplace/shared';
 import { LaplaceLogo } from '../ui';
 
 type Status = 'loading' | 'configured' | 'not-configured';

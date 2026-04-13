@@ -1,5 +1,5 @@
-import { DEFAULT_SETTINGS } from './constants';
-import type { Settings } from './types';
+import { DEFAULT_SETTINGS } from '@laplace/shared';
+import type { Settings } from '@laplace/shared';
 
 const STORAGE_KEY = 'laplace-settings';
 

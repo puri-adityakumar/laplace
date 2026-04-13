@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { MODELS } from '../lib/constants';
-import { fetchOpenRouterModels, formatPricing, type OpenRouterModel } from '../lib/openrouter-models';
+import { MODELS, fetchOpenRouterModels, formatPricing } from '@laplace/shared';
+import type { OpenRouterModel } from '@laplace/shared';
 
 interface ModelSelectorProps {
   value: string;

@@ -1,6 +1,6 @@
-import type { PRContext } from './types';
+import type { PRContext } from '@laplace/shared';
 import { scrapePRPage, getPRInfoFromURL, isNewPRPage } from './dom-scraper';
-import { fetchPRContext, fetchCompareDiff } from './github-api';
+import { fetchPRContext, fetchCompareDiff } from '@laplace/shared';
 
 export interface ContextOptions {
   githubPat?: string;
