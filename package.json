@@ -17,6 +17,6 @@
     "dev:vscode": "npm run dev -w @laplace/vscode-ext",
     "dev:landing": "npm run dev -w landing-page",
     "lint": "npm run lint -w @laplace/chrome-ext",
-    "typecheck": "npm run typecheck -w @laplace/shared && npm run typecheck -w @laplace/chrome-ext"
+    "typecheck": "npm run typecheck -w @laplace/shared && npm run typecheck -w @laplace/chrome-ext && npm run typecheck -w @laplace/vscode-ext"
   }
 }
